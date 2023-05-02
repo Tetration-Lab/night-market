@@ -1,3 +1,9 @@
+#[cfg(test)]
+mod tests;
+
+pub mod utils;
+
+use ark_bn254::Fr;
 use ark_crypto_primitives::{
     crh::{TwoToOneCRH, TwoToOneCRHGadget},
     merkle_tree::Config,
@@ -13,6 +19,26 @@ use ark_relations::{
     ns,
     r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError},
 };
+use arkworks_mimc::{
+    constraints::{MiMCNonFeistelCRHGadget, MiMCVar},
+    params::mimc_5_220_bn254::MIMC_5_220_BN254_PARAMS,
+    MiMC, MiMCNonFeistelCRH,
+};
+
+pub struct MiMCConfig;
+pub type MainCircuitBn254<const N_ASSETS: usize> = MainCircuit<
+    N_ASSETS,
+    Fr,
+    MiMC<Fr, MIMC_5_220_BN254_PARAMS>,
+    MiMCVar<Fr, MIMC_5_220_BN254_PARAMS>,
+    MiMCNonFeistelCRH<Fr, MIMC_5_220_BN254_PARAMS>,
+    MiMCNonFeistelCRHGadget<Fr, MIMC_5_220_BN254_PARAMS>,
+    MiMCConfig,
+>;
+impl Config for MiMCConfig {
+    type LeafHash = MiMCNonFeistelCRH<Fr, MIMC_5_220_BN254_PARAMS>;
+    type TwoToOneHash = MiMCNonFeistelCRH<Fr, MIMC_5_220_BN254_PARAMS>;
+}
 
 /// Main Circuit
 ///

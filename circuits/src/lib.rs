@@ -107,8 +107,8 @@ impl<
         hasher: &HPV,
         balance_root: &FpVar<F>,
         balances: &[FpVar<F>],
-    ) -> Result<Boolean<F>, SynthesisError> {
-        balance_root.is_eq(&<HG as CRHGadget<H, F>>::evaluate(
+    ) -> Result<(Boolean<F>, FpVar<F>), SynthesisError> {
+        let calculated_root = <HG as CRHGadget<H, F>>::evaluate(
             &hasher,
             &balances
                 .iter()
@@ -117,36 +117,41 @@ impl<
                     Err(err) => vec![Err(err)],
                 })
                 .collect::<Result<Vec<_>, _>>()?,
-        )?)
+        )?;
+        Ok((balance_root.is_eq(&calculated_root)?, calculated_root))
     }
 
-    pub fn empty(hasher: &HP) -> Self {
+    pub fn empty(hasher: &HP) -> (Self, MerkleTree<P>) {
         let empty_tree =
-            MerkleTree::<P>::blank(hasher, hasher, TREE_DEPTH).expect("should create empty tree");
-        Self {
-            address: F::zero(),
-            nullifier: F::zero(),
-            secret: F::zero(),
-            utxo_root: F::zero(),
-            incoming_balance_root: F::zero(),
-            incoming_balances: [F::zero(); N_ASSETS],
-            outcoming_balance_root: F::zero(),
-            outcoming_balances: [F::zero(); N_ASSETS],
-            old_note_nullifier_hash: F::zero(),
-            old_note_identifier: F::zero(),
-            old_note_path: empty_tree
-                .generate_proof(0)
-                .expect("should generate empty proof"),
-            old_note_blinding: F::zero(),
-            old_note_balance_root: F::zero(),
-            old_note_balances: [F::zero(); N_ASSETS],
-            new_note: F::zero(),
-            new_note_blinding: F::zero(),
-            new_note_balance_root: F::zero(),
-            new_note_balances: [F::zero(); N_ASSETS],
-            parameters: hasher.clone(),
-            _hg: std::marker::PhantomData,
-        }
+            MerkleTree::<P>::new(hasher, hasher, &vec![F::zero(); 1 << (TREE_DEPTH - 1)])
+                .expect("should create empty tree");
+        (
+            Self {
+                address: F::zero(),
+                nullifier: F::zero(),
+                secret: F::zero(),
+                utxo_root: F::zero(),
+                incoming_balance_root: F::zero(),
+                incoming_balances: [F::zero(); N_ASSETS],
+                outcoming_balance_root: F::zero(),
+                outcoming_balances: [F::zero(); N_ASSETS],
+                old_note_nullifier_hash: F::zero(),
+                old_note_identifier: F::zero(),
+                old_note_path: empty_tree
+                    .generate_proof(0)
+                    .expect("should generate empty proof"),
+                old_note_blinding: F::zero(),
+                old_note_balance_root: F::zero(),
+                old_note_balances: [F::zero(); N_ASSETS],
+                new_note: F::zero(),
+                new_note_blinding: F::zero(),
+                new_note_balance_root: F::zero(),
+                new_note_balances: [F::zero(); N_ASSETS],
+                parameters: hasher.clone(),
+                _hg: std::marker::PhantomData,
+            },
+            empty_tree,
+        )
     }
 }
 
@@ -228,10 +233,12 @@ impl<
 
         // Assert validity of incoming balance root
         Self::check_valid_balance_root(&parameters, &incoming_balance_root, &incoming_balances)?
+            .0
             .enforce_equal(&Boolean::TRUE)?;
 
         // Assert validity of outcoming balance root
         Self::check_valid_balance_root(&parameters, &outcoming_balance_root, &outcoming_balances)?
+            .0
             .enforce_equal(&Boolean::TRUE)?;
 
         // Calculate old note
@@ -266,14 +273,14 @@ impl<
             old_note_path.verify_membership(&parameters, &parameters, &utxo_root, &old_note)?;
 
         // Calculate validity of old note balance root
-        let is_old_balance_root_valid = Self::check_valid_balance_root(
+        let (is_old_balance_root_valid, calculated_root) = Self::check_valid_balance_root(
             &parameters,
             &old_note_balance_root,
             &old_note_balances,
         )?;
 
         // Assert validity of old note if there are some balance in it
-        old_note_balance_root
+        calculated_root
             .is_eq(&zero_balance_root)?
             .or(&is_nullifier_valid
                 .and(&is_identifier_valid)?
@@ -283,6 +290,7 @@ impl<
 
         // Assert validity of new note balance root
         Self::check_valid_balance_root(&parameters, &new_note_balance_root, &new_note_balances)?
+            .0
             .enforce_equal(&Boolean::TRUE)?;
 
         // Assert validity of new note

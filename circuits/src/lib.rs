@@ -69,11 +69,8 @@ pub struct MainCircuit<
 
     pub utxo_root: F, // Public
 
-    pub incoming_balance_root: F, // Public
-    pub incoming_balances: [F; N_ASSETS],
-
-    pub outcoming_balance_root: F, // Public
-    pub outcoming_balances: [F; N_ASSETS],
+    pub diff_balance_root: F, // Public
+    pub diff_balances: [F; N_ASSETS],
 
     pub old_note_nullifier_hash: F, // Public
     pub old_note_identifier: F,     // Public
@@ -131,10 +128,8 @@ impl<
                 nullifier: F::zero(),
                 secret: F::zero(),
                 utxo_root: F::zero(),
-                incoming_balance_root: F::zero(),
-                incoming_balances: [F::zero(); N_ASSETS],
-                outcoming_balance_root: F::zero(),
-                outcoming_balances: [F::zero(); N_ASSETS],
+                diff_balance_root: F::zero(),
+                diff_balances: [F::zero(); N_ASSETS],
                 old_note_nullifier_hash: F::zero(),
                 old_note_identifier: F::zero(),
                 old_note_path: empty_tree
@@ -152,6 +147,33 @@ impl<
             },
             empty_tree,
         )
+    }
+
+    pub fn empty_without_tree(hasher: &HP) -> Self {
+        Self {
+            address: F::zero(),
+            nullifier: F::zero(),
+            secret: F::zero(),
+            utxo_root: F::zero(),
+            diff_balance_root: F::zero(),
+            diff_balances: [F::zero(); N_ASSETS],
+            old_note_nullifier_hash: F::zero(),
+            old_note_identifier: F::zero(),
+            old_note_path: Path {
+                leaf_sibling_hash: F::zero(),
+                auth_path: vec![F::zero(); TREE_DEPTH - 2],
+                leaf_index: 0,
+            },
+            old_note_blinding: F::zero(),
+            old_note_balance_root: F::zero(),
+            old_note_balances: [F::zero(); N_ASSETS],
+            new_note: F::zero(),
+            new_note_blinding: F::zero(),
+            new_note_balance_root: F::zero(),
+            new_note_balances: [F::zero(); N_ASSETS],
+            parameters: hasher.clone(),
+            _hg: std::marker::PhantomData,
+        }
     }
 }
 
@@ -188,20 +210,11 @@ impl<
 
         let utxo_root = FpVar::new_input(ns!(cs, "utxo_root"), || Ok(self.utxo_root))?;
 
-        let incoming_balance_root = FpVar::new_input(ns!(cs, "incoming_balance_root"), || {
-            Ok(self.incoming_balance_root)
+        let diff_balance_root =
+            FpVar::new_input(ns!(cs, "diff_balance_root"), || Ok(self.diff_balance_root))?;
+        let diff_balances = Vec::<FpVar<F>>::new_witness(ns!(cs, "diff_balances"), || {
+            Ok(self.diff_balances.to_vec())
         })?;
-        let incoming_balances = Vec::<FpVar<F>>::new_witness(ns!(cs, "incoming_balances"), || {
-            Ok(self.incoming_balances.to_vec())
-        })?;
-
-        let outcoming_balance_root = FpVar::new_input(ns!(cs, "outcoming_balance_root"), || {
-            Ok(self.outcoming_balance_root)
-        })?;
-        let outcoming_balances =
-            Vec::<FpVar<F>>::new_witness(ns!(cs, "outcoming_balances"), || {
-                Ok(self.outcoming_balances.to_vec())
-            })?;
 
         let old_note_nullifier_hash = FpVar::new_input(ns!(cs, "old_note_nullifier_hash"), || {
             Ok(self.old_note_nullifier_hash)
@@ -231,13 +244,8 @@ impl<
             Ok(self.new_note_balances.to_vec())
         })?;
 
-        // Assert validity of incoming balance root
-        Self::check_valid_balance_root(&parameters, &incoming_balance_root, &incoming_balances)?
-            .0
-            .enforce_equal(&Boolean::TRUE)?;
-
-        // Assert validity of outcoming balance root
-        Self::check_valid_balance_root(&parameters, &outcoming_balance_root, &outcoming_balances)?
+        // Assert validity of diff balance root
+        Self::check_valid_balance_root(&parameters, &diff_balance_root, &diff_balances)?
             .0
             .enforce_equal(&Boolean::TRUE)?;
 
@@ -314,12 +322,11 @@ impl<
 
         // Assert Validity of all balances (inflow = outflow)
         for i in 0..N_ASSETS {
-            incoming_balances[i].enforce_smaller_or_equal_than_mod_minus_one_div_two()?;
-            outcoming_balances[i].enforce_smaller_or_equal_than_mod_minus_one_div_two()?;
+            // Assert that all balances are smaller than mod_minus_one_div_two (>= 0)
             old_note_balances[i].enforce_smaller_or_equal_than_mod_minus_one_div_two()?;
             new_note_balances[i].enforce_smaller_or_equal_than_mod_minus_one_div_two()?;
-            (&incoming_balances[i] + &old_note_balances[i])
-                .enforce_equal(&(&outcoming_balances[i] + &new_note_balances[i]))?;
+
+            (&old_note_balances[i] + &diff_balances[i]).enforce_equal(&new_note_balances[i])?;
         }
 
         Ok(())

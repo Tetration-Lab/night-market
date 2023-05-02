@@ -7,7 +7,7 @@ use ark_bn254::Fr;
 use ark_crypto_primitives::{
     crh::{TwoToOneCRH, TwoToOneCRHGadget},
     merkle_tree::Config,
-    CRHGadget, Path, PathVar, CRH,
+    CRHGadget, MerkleTree, Path, PathVar, CRH,
 };
 use ark_ff::{to_bytes, PrimeField};
 use ark_r1cs_std::{
@@ -26,8 +26,9 @@ use arkworks_mimc::{
 };
 
 pub struct MiMCConfig;
-pub type MainCircuitBn254<const N_ASSETS: usize> = MainCircuit<
+pub type MainCircuitBn254<const N_ASSETS: usize, const TREE_DEPTH: usize> = MainCircuit<
     N_ASSETS,
+    TREE_DEPTH,
     Fr,
     MiMC<Fr, MIMC_5_220_BN254_PARAMS>,
     MiMCVar<Fr, MIMC_5_220_BN254_PARAMS>,
@@ -53,8 +54,9 @@ impl Config for MiMCConfig {
 /// UTXO Tree = MerkleTree(Leaf = UTXO Note)
 pub struct MainCircuit<
     const N_ASSETS: usize,
+    const TREE_DEPTH: usize,
     F: PrimeField,
-    HP,
+    HP: Clone,
     HPV: AllocVar<HP, F>,
     H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
     HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
@@ -91,14 +93,15 @@ pub struct MainCircuit<
 
 impl<
         const N_ASSETS: usize,
+        const TREE_DEPTH: usize,
         F: PrimeField,
-        HP,
+        HP: Clone,
         HPV: AllocVar<HP, F>,
         H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
         HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
             + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
         P: Config<LeafHash = H, TwoToOneHash = H>,
-    > MainCircuit<N_ASSETS, F, HP, HPV, H, HG, P>
+    > MainCircuit<N_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG, P>
 {
     pub fn check_valid_balance_root(
         hasher: &HPV,
@@ -116,18 +119,48 @@ impl<
                 .collect::<Result<Vec<_>, _>>()?,
         )?)
     }
+
+    pub fn empty(hasher: &HP) -> Self {
+        let empty_tree =
+            MerkleTree::<P>::blank(hasher, hasher, TREE_DEPTH).expect("should create empty tree");
+        Self {
+            address: F::zero(),
+            nullifier: F::zero(),
+            secret: F::zero(),
+            utxo_root: F::zero(),
+            incoming_balance_root: F::zero(),
+            incoming_balances: [F::zero(); N_ASSETS],
+            outcoming_balance_root: F::zero(),
+            outcoming_balances: [F::zero(); N_ASSETS],
+            old_note_nullifier_hash: F::zero(),
+            old_note_identifier: F::zero(),
+            old_note_path: empty_tree
+                .generate_proof(0)
+                .expect("should generate empty proof"),
+            old_note_blinding: F::zero(),
+            old_note_balance_root: F::zero(),
+            old_note_balances: [F::zero(); N_ASSETS],
+            new_note: F::zero(),
+            new_note_blinding: F::zero(),
+            new_note_balance_root: F::zero(),
+            new_note_balances: [F::zero(); N_ASSETS],
+            parameters: hasher.clone(),
+            _hg: std::marker::PhantomData,
+        }
+    }
 }
 
 impl<
         const N_ASSETS: usize,
+        const TREE_DEPTH: usize,
         F: PrimeField,
-        HP,
+        HP: Clone,
         HPV: AllocVar<HP, F>,
         H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
         HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
             + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
         P: Config<LeafHash = H, TwoToOneHash = H>,
-    > ConstraintSynthesizer<F> for MainCircuit<N_ASSETS, F, HP, HPV, H, HG, P>
+    > ConstraintSynthesizer<F> for MainCircuit<N_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG, P>
 {
     fn generate_constraints(self, cs: ConstraintSystemRef<F>) -> Result<(), SynthesisError> {
         let zero_balance_root = FpVar::new_constant(

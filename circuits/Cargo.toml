@@ -13,3 +13,8 @@ ark-relations = { version = "^0.3.0", default-features = false }
 ark-crypto-primitives = { version = "^0.3.0", default-features = false }
 ark-bn254 = { version = "^0.3.0", default-features = false, features = ["curve"] }
 arkworks-mimc = { version = "0.3.0", default-features = false, features = ["r1cs", "mimc-5-220-bn254"] }
+
+[dev-dependencies]
+ark-std = { version = "^0.3.0", default-features = false, features = ["parallel", "print-trace"] }
+ark-ff = { version = "^0.3.0", default-features = false, features = ["parallel"] }
+ark-groth16 = { version = "^0.3.0", default-features = false, features = ["parallel"] }

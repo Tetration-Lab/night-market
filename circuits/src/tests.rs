@@ -8,16 +8,23 @@ use ark_std::{test_rng, UniformRand, Zero};
 use crate::{utils::mimc, MainCircuitBn254};
 
 type TestCircuit2Asset = MainCircuitBn254<2, 10>;
+type TestCircuitProdAsset = MainCircuitBn254<10, 25>;
 
 #[test]
 pub fn num_constraints() -> Result<(), Box<dyn Error>> {
     let cs = ConstraintSystem::new_ref();
-    TestCircuit2Asset::empty(&mimc())
-        .0
-        .generate_constraints(cs.clone())?;
+    TestCircuit2Asset::empty_without_tree(&mimc()).generate_constraints(cs.clone())?;
 
     println!(
-        "Constraints {}",
+        "2 Asset Constraints {}",
+        cs.num_constraints() + cs.num_instance_variables()
+    );
+
+    let cs = ConstraintSystem::new_ref();
+    TestCircuitProdAsset::empty_without_tree(&mimc()).generate_constraints(cs.clone())?;
+
+    println!(
+        "Prod Constraints {}",
         cs.num_constraints() + cs.num_instance_variables()
     );
 
@@ -36,14 +43,12 @@ pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
     let address = Fr::from_le_bytes_mod_order(address_str.as_bytes());
     let secret = Fr::rand(rng);
 
-    let incoming_balances = [Fr::from(100), Fr::from(200)];
-    let incoming_balance_root = mimc.permute_non_feistel(incoming_balances.to_vec())[0];
-    let outcoming_balances = [Fr::zero(); 2];
-    let outcoming_balance_root = mimc.permute_non_feistel(outcoming_balances.to_vec())[0];
+    let diff_balances = [Fr::from(100), Fr::from(200)];
+    let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
 
     let new_note_blinding = Fr::rand(rng);
-    let new_note_balance_root = incoming_balance_root;
-    let new_note_balances = incoming_balances;
+    let new_note_balance_root = diff_balance_root;
+    let new_note_balances = diff_balances;
     let new_note = mimc.permute_non_feistel(vec![
         new_note_balance_root,
         mimc.permute_non_feistel(vec![address, new_note_blinding])[0],
@@ -55,10 +60,8 @@ pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
         nullifier: Fr::zero(),
         secret,
         utxo_root: Fr::zero(),
-        incoming_balance_root,
-        incoming_balances,
-        outcoming_balance_root,
-        outcoming_balances,
+        diff_balance_root,
+        diff_balances,
         old_note_nullifier_hash: Fr::zero(),
         old_note_identifier: Fr::zero(),
         old_note_path: tree.generate_proof(0).expect("should generate empty proof"),

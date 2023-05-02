@@ -46,7 +46,7 @@ impl Config for MiMCConfig {
 /// UTXO Note = H_crh(
 ///     balance_root: H_crh(balances),
 ///     identifier: H_tto_crh(address, blinding),
-///     secret,
+///     secret, [add hashing entropy to increase security]
 /// )
 ///
 /// Note Nullifier = H_tto_crh(UTXO Note, nullifier)
@@ -65,8 +65,7 @@ pub struct MainCircuit<
 > {
     pub address: F,
     pub nullifier: F,
-    pub secret: F,
-
+    //pub secret: F,
     pub utxo_root: F, // Public
 
     pub diff_balance_root: F, // Public
@@ -126,7 +125,7 @@ impl<
             Self {
                 address: F::zero(),
                 nullifier: F::zero(),
-                secret: F::zero(),
+                //secret: F::zero(),
                 utxo_root: F::zero(),
                 diff_balance_root: F::zero(),
                 diff_balances: [F::zero(); N_ASSETS],
@@ -153,7 +152,7 @@ impl<
         Self {
             address: F::zero(),
             nullifier: F::zero(),
-            secret: F::zero(),
+            //secret: F::zero(),
             utxo_root: F::zero(),
             diff_balance_root: F::zero(),
             diff_balances: [F::zero(); N_ASSETS],
@@ -206,7 +205,7 @@ impl<
 
         let address = FpVar::new_witness(ns!(cs, "address"), || Ok(self.address))?;
         let nullifier = FpVar::new_witness(ns!(cs, "nullifier"), || Ok(self.nullifier))?;
-        let secret = FpVar::new_witness(ns!(cs, "secret"), || Ok(self.secret))?;
+        //let secret = FpVar::new_witness(ns!(cs, "secret"), || Ok(self.secret))?;
 
         let utxo_root = FpVar::new_input(ns!(cs, "utxo_root"), || Ok(self.utxo_root))?;
 
@@ -256,7 +255,7 @@ impl<
                 .to_bytes()?
                 .into_iter()
                 .chain(old_note_identifier.to_bytes()?.into_iter())
-                .chain(secret.to_bytes()?.into_iter())
+                //.chain(secret.to_bytes()?.into_iter())
                 .collect::<Vec<_>>(),
         )?;
 
@@ -316,7 +315,7 @@ impl<
                     .to_bytes()?
                     .into_iter(),
                 )
-                .chain(secret.to_bytes()?.into_iter())
+                //.chain(secret.to_bytes()?.into_iter())
                 .collect::<Vec<_>>(),
         )?)?;
 

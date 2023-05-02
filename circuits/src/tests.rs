@@ -41,7 +41,7 @@ pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
 
     let address_str = "osmo1zlymlax05tg9km9jyw496jx60v86m4548xw2xu";
     let address = Fr::from_le_bytes_mod_order(address_str.as_bytes());
-    let secret = Fr::rand(rng);
+    //let secret = Fr::rand(rng);
 
     let diff_balances = [Fr::from(100), Fr::from(200)];
     let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
@@ -52,13 +52,13 @@ pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
     let new_note = mimc.permute_non_feistel(vec![
         new_note_balance_root,
         mimc.permute_non_feistel(vec![address, new_note_blinding])[0],
-        secret,
+        //secret,
     ])[0];
 
     let circuit = TestCircuit2Asset {
         address,
         nullifier: Fr::zero(),
-        secret,
+        //secret,
         utxo_root: Fr::zero(),
         diff_balance_root,
         diff_balances,

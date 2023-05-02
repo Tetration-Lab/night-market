@@ -1,13 +1,80 @@
 use std::error::Error;
 
+use ark_bn254::Fr;
+use ark_ff::PrimeField;
+use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystem};
+use ark_std::{test_rng, UniformRand, Zero};
+
 use crate::{utils::mimc, MainCircuitBn254};
 
-type TestCircuit1Asset = MainCircuitBn254<1, 10>;
 type TestCircuit2Asset = MainCircuitBn254<2, 10>;
 
 #[test]
-pub fn empty() -> Result<(), Box<dyn Error>> {
-    let _ = TestCircuit1Asset::empty(&mimc());
+pub fn num_constraints() -> Result<(), Box<dyn Error>> {
+    let cs = ConstraintSystem::new_ref();
+    TestCircuit2Asset::empty(&mimc())
+        .0
+        .generate_constraints(cs.clone())?;
+
+    println!(
+        "Constraints {}",
+        cs.num_constraints() + cs.num_instance_variables()
+    );
+
+    Ok(())
+}
+
+#[test]
+pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
+    let rng = &mut test_rng();
+    let mimc = mimc();
+    let (_, tree) = TestCircuit2Asset::empty(&mimc);
+    let cs = ConstraintSystem::<Fr>::new_ref();
+    //let (pk, vk) = Groth16::<Bn254>::circuit_specific_setup(circuit, rng)?;
+
+    let address_str = "osmo1zlymlax05tg9km9jyw496jx60v86m4548xw2xu";
+    let address = Fr::from_le_bytes_mod_order(address_str.as_bytes());
+    let secret = Fr::rand(rng);
+
+    let incoming_balances = [Fr::from(100), Fr::from(200)];
+    let incoming_balance_root = mimc.permute_non_feistel(incoming_balances.to_vec())[0];
+    let outcoming_balances = [Fr::zero(); 2];
+    let outcoming_balance_root = mimc.permute_non_feistel(outcoming_balances.to_vec())[0];
+
+    let new_note_blinding = Fr::rand(rng);
+    let new_note_balance_root = incoming_balance_root;
+    let new_note_balances = incoming_balances;
+    let new_note = mimc.permute_non_feistel(vec![
+        new_note_balance_root,
+        mimc.permute_non_feistel(vec![address, new_note_blinding])[0],
+        secret,
+    ])[0];
+
+    let circuit = TestCircuit2Asset {
+        address,
+        nullifier: Fr::zero(),
+        secret,
+        utxo_root: Fr::zero(),
+        incoming_balance_root,
+        incoming_balances,
+        outcoming_balance_root,
+        outcoming_balances,
+        old_note_nullifier_hash: Fr::zero(),
+        old_note_identifier: Fr::zero(),
+        old_note_path: tree.generate_proof(0).expect("should generate empty proof"),
+        old_note_blinding: Fr::zero(),
+        old_note_balance_root: Fr::zero(),
+        old_note_balances: [Fr::zero(); 2],
+        new_note,
+        new_note_blinding,
+        new_note_balance_root,
+        new_note_balances,
+        parameters: mimc,
+        _hg: std::marker::PhantomData,
+    };
+    circuit.generate_constraints(cs.clone())?;
+
+    assert!(cs.is_satisfied().expect("constraints not satisfied"));
 
     Ok(())
 }

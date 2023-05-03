@@ -36,14 +36,14 @@ pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
     let rng = &mut test_rng();
     let mimc = mimc();
     let tree_timer = start_timer!(|| "generating tree");
-    let (_, tree) = TestCircuitProdAsset::empty(&mimc);
+    let (_, tree) = TestCircuit2Asset::empty(&mimc);
     end_timer!(tree_timer);
     let cs = ConstraintSystem::<Fr>::new_ref();
     //let (pk, vk) = Groth16::<Bn254>::circuit_specific_setup(circuit, rng)?;
 
     let address_str = "osmo1zlymlax05tg9km9jyw496jx60v86m4548xw2xu";
     let address = Fr::from_le_bytes_mod_order(address_str.as_bytes());
-    //let secret = Fr::rand(rng);
+    let nullifier = Fr::rand(rng);
 
     let diff_balances = [Fr::from(100), Fr::from(200)];
     let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
@@ -51,14 +51,14 @@ pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
     let new_note_blinding = Fr::rand(rng);
     let new_note_balances = diff_balances;
     let new_note = mimc.permute_non_feistel(vec![
+        diff_balance_root,
         mimc.permute_non_feistel(vec![address, new_note_blinding])[0],
-        //secret,
+        nullifier,
     ])[0];
 
     let circuit = TestCircuit2Asset {
         address,
-        nullifier: Fr::zero(),
-        //secret,
+        nullifier,
         utxo_root: Fr::zero(),
         diff_balance_root,
         diff_balances,

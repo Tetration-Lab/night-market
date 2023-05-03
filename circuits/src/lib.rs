@@ -1,13 +1,15 @@
 #[cfg(test)]
 mod tests;
 
+pub mod merkle_tree;
 pub mod utils;
+
+use std::collections::BTreeMap;
 
 use ark_bn254::Fr;
 use ark_crypto_primitives::{
     crh::{TwoToOneCRH, TwoToOneCRHGadget},
-    merkle_tree::Config,
-    CRHGadget, MerkleTree, Path, PathVar, CRH,
+    CRHGadget, CRH,
 };
 use ark_ff::{to_bytes, PrimeField};
 use ark_r1cs_std::{
@@ -24,6 +26,7 @@ use arkworks_mimc::{
     params::mimc_7_91_bn254::MIMC_7_91_BN254_PARAMS,
     MiMC, MiMCNonFeistelCRH,
 };
+use merkle_tree::{Path, PathVar, SparseMerkleTree};
 
 pub struct MiMCConfig;
 pub type MiMCParam = MIMC_7_91_BN254_PARAMS;
@@ -35,12 +38,7 @@ pub type MainCircuitBn254<const N_ASSETS: usize, const TREE_DEPTH: usize> = Main
     MiMCVar<Fr, MiMCParam>,
     MiMCNonFeistelCRH<Fr, MiMCParam>,
     MiMCNonFeistelCRHGadget<Fr, MiMCParam>,
-    MiMCConfig,
 >;
-impl Config for MiMCConfig {
-    type LeafHash = MiMCNonFeistelCRH<Fr, MiMCParam>;
-    type TwoToOneHash = MiMCNonFeistelCRH<Fr, MiMCParam>;
-}
 
 /// Main Circuit
 ///
@@ -62,7 +60,6 @@ pub struct MainCircuit<
     H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
     HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
         + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
-    P: Config<LeafHash = H, TwoToOneHash = H>,
 > {
     pub address: F,
     pub nullifier: F,
@@ -73,7 +70,7 @@ pub struct MainCircuit<
 
     pub old_note_nullifier_hash: F, // Public
     pub old_note_identifier: F,     // Public
-    pub old_note_path: Path<P>,
+    pub old_note_path: Path<F, H, TREE_DEPTH>,
     pub old_note_balances: [F; N_ASSETS],
 
     pub new_note: F, // Public
@@ -93,8 +90,7 @@ impl<
         H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
         HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
             + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
-        P: Config<LeafHash = H, TwoToOneHash = H>,
-    > MainCircuit<N_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG, P>
+    > MainCircuit<N_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG>
 {
     pub fn calculate_balance_root(
         hasher: &HPV,
@@ -118,13 +114,12 @@ impl<
         balances: &[FpVar<F>],
     ) -> Result<Boolean<F>, SynthesisError> {
         let calculated_root = Self::calculate_balance_root(hasher, balances)?;
-        Ok(balance_root.is_eq(&calculated_root)?)
+        balance_root.is_eq(&calculated_root)
     }
 
-    pub fn empty(hasher: &HP) -> (Self, MerkleTree<P>) {
-        let empty_tree =
-            MerkleTree::<P>::new(hasher, hasher, &vec![F::zero(); 1 << (TREE_DEPTH - 1)])
-                .expect("should create empty tree");
+    pub fn empty(hasher: &HP) -> (Self, SparseMerkleTree<F, H, TREE_DEPTH>) {
+        let empty_tree = SparseMerkleTree::new(&BTreeMap::new(), hasher, &F::zero())
+            .expect("should create empty tree");
         (
             Self {
                 address: F::zero(),
@@ -134,9 +129,7 @@ impl<
                 diff_balances: [F::zero(); N_ASSETS],
                 old_note_nullifier_hash: F::zero(),
                 old_note_identifier: F::zero(),
-                old_note_path: empty_tree
-                    .generate_proof(0)
-                    .expect("should generate empty proof"),
+                old_note_path: empty_tree.generate_membership_proof(0),
                 old_note_balances: [F::zero(); N_ASSETS],
                 new_note: F::zero(),
                 new_note_blinding: F::zero(),
@@ -158,9 +151,8 @@ impl<
             old_note_nullifier_hash: F::zero(),
             old_note_identifier: F::zero(),
             old_note_path: Path {
-                leaf_sibling_hash: F::zero(),
-                auth_path: vec![F::zero(); TREE_DEPTH - 2],
-                leaf_index: 0,
+                path: [(F::zero(), F::zero()); TREE_DEPTH],
+                marker: std::marker::PhantomData,
             },
             old_note_balances: [F::zero(); N_ASSETS],
             new_note: F::zero(),
@@ -181,8 +173,7 @@ impl<
         H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
         HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
             + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
-        P: Config<LeafHash = H, TwoToOneHash = H>,
-    > ConstraintSynthesizer<F> for MainCircuit<N_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG, P>
+    > ConstraintSynthesizer<F> for MainCircuit<N_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG>
 {
     fn generate_constraints(self, cs: ConstraintSystemRef<F>) -> Result<(), SynthesisError> {
         let zero_balance_root = FpVar::new_constant(
@@ -191,8 +182,7 @@ impl<
                 &self.parameters,
                 &vec![F::zero(); N_ASSETS]
                     .into_iter()
-                    .map(|e| to_bytes!(e).expect("must serialize"))
-                    .flatten()
+                    .flat_map(|e| to_bytes!(e).expect("must serialize"))
                     .collect::<Vec<u8>>(),
             )
             .expect("zero hash must not fail"),
@@ -216,9 +206,10 @@ impl<
         let old_note_identifier = FpVar::new_input(ns!(cs, "old_note_identifier"), || {
             Ok(self.old_note_identifier)
         })?;
-        let old_note_path = PathVar::<P, HG, HG, F>::new_witness(ns!(cs, "old_note_path"), || {
-            Ok(self.old_note_path)
-        })?;
+        let old_note_path =
+            PathVar::<F, H, HG, TREE_DEPTH>::new_witness(ns!(cs, "old_note_path"), || {
+                Ok(self.old_note_path)
+            })?;
         let old_note_balances = Vec::<FpVar<F>>::new_witness(ns!(cs, "old_note_balances"), || {
             Ok(self.old_note_balances.to_vec())
         })?;
@@ -258,7 +249,7 @@ impl<
 
         // Calculate validity of old note path
         let is_old_note_path_valid =
-            old_note_path.verify_membership(&parameters, &parameters, &utxo_root, &old_note)?;
+            old_note_path.check_membership(&utxo_root, &old_note, &parameters)?;
 
         // Assert validity of old note if there are some balance in it
         old_note_balance_root

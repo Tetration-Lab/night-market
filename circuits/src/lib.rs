@@ -76,12 +76,10 @@ pub struct MainCircuit<
     pub old_note_identifier: F,     // Public
     pub old_note_path: Path<P>,
     pub old_note_blinding: F,
-    pub old_note_balance_root: F,
     pub old_note_balances: [F; N_ASSETS],
 
     pub new_note: F, // Public
     pub new_note_blinding: F,
-    pub new_note_balance_root: F,
     pub new_note_balances: [F; N_ASSETS],
 
     pub parameters: HP, // Constant
@@ -100,13 +98,12 @@ impl<
         P: Config<LeafHash = H, TwoToOneHash = H>,
     > MainCircuit<N_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG, P>
 {
-    pub fn check_valid_balance_root(
+    pub fn calculate_balance_root(
         hasher: &HPV,
-        balance_root: &FpVar<F>,
         balances: &[FpVar<F>],
-    ) -> Result<(Boolean<F>, FpVar<F>), SynthesisError> {
-        let calculated_root = <HG as CRHGadget<H, F>>::evaluate(
-            &hasher,
+    ) -> Result<FpVar<F>, SynthesisError> {
+        <HG as CRHGadget<H, F>>::evaluate(
+            hasher,
             &balances
                 .iter()
                 .flat_map(|e| match e.to_bytes() {
@@ -114,8 +111,16 @@ impl<
                     Err(err) => vec![Err(err)],
                 })
                 .collect::<Result<Vec<_>, _>>()?,
-        )?;
-        Ok((balance_root.is_eq(&calculated_root)?, calculated_root))
+        )
+    }
+
+    pub fn check_valid_balance_root(
+        hasher: &HPV,
+        balance_root: &FpVar<F>,
+        balances: &[FpVar<F>],
+    ) -> Result<Boolean<F>, SynthesisError> {
+        let calculated_root = Self::calculate_balance_root(hasher, balances)?;
+        Ok(balance_root.is_eq(&calculated_root)?)
     }
 
     pub fn empty(hasher: &HP) -> (Self, MerkleTree<P>) {
@@ -136,11 +141,9 @@ impl<
                     .generate_proof(0)
                     .expect("should generate empty proof"),
                 old_note_blinding: F::zero(),
-                old_note_balance_root: F::zero(),
                 old_note_balances: [F::zero(); N_ASSETS],
                 new_note: F::zero(),
                 new_note_blinding: F::zero(),
-                new_note_balance_root: F::zero(),
                 new_note_balances: [F::zero(); N_ASSETS],
                 parameters: hasher.clone(),
                 _hg: std::marker::PhantomData,
@@ -165,11 +168,9 @@ impl<
                 leaf_index: 0,
             },
             old_note_blinding: F::zero(),
-            old_note_balance_root: F::zero(),
             old_note_balances: [F::zero(); N_ASSETS],
             new_note: F::zero(),
             new_note_blinding: F::zero(),
-            new_note_balance_root: F::zero(),
             new_note_balances: [F::zero(); N_ASSETS],
             parameters: hasher.clone(),
             _hg: std::marker::PhantomData,
@@ -227,9 +228,6 @@ impl<
         })?;
         let old_note_blinding =
             FpVar::new_witness(ns!(cs, "old_note_blinding"), || Ok(self.old_note_blinding))?;
-        let old_note_balance_root = FpVar::new_witness(ns!(cs, "old_note_balance_root"), || {
-            Ok(self.old_note_balance_root)
-        })?;
         let old_note_balances = Vec::<FpVar<F>>::new_witness(ns!(cs, "old_note_balances"), || {
             Ok(self.old_note_balances.to_vec())
         })?;
@@ -237,17 +235,16 @@ impl<
         let new_note = FpVar::new_input(ns!(cs, "new_note_identifier"), || Ok(self.new_note))?;
         let new_note_blinding =
             FpVar::new_witness(ns!(cs, "new_note_blinding"), || Ok(self.new_note_blinding))?;
-        let new_note_balance_root = FpVar::new_witness(ns!(cs, "new_note_balance_root"), || {
-            Ok(self.new_note_balance_root)
-        })?;
         let new_note_balances = Vec::<FpVar<F>>::new_witness(ns!(cs, "new_note_balances"), || {
             Ok(self.new_note_balances.to_vec())
         })?;
 
         // Assert validity of diff balance root
         Self::check_valid_balance_root(&parameters, &diff_balance_root, &diff_balances)?
-            .0
             .enforce_equal(&Boolean::TRUE)?;
+
+        // Calculate old note balance root
+        let old_note_balance_root = Self::calculate_balance_root(&parameters, &old_note_balances)?;
 
         // Calculate old note
         let old_note = <HG as CRHGadget<H, F>>::evaluate(
@@ -280,26 +277,16 @@ impl<
         let is_old_note_path_valid =
             old_note_path.verify_membership(&parameters, &parameters, &utxo_root, &old_note)?;
 
-        // Calculate validity of old note balance root
-        let (is_old_balance_root_valid, calculated_root) = Self::check_valid_balance_root(
-            &parameters,
-            &old_note_balance_root,
-            &old_note_balances,
-        )?;
-
         // Assert validity of old note if there are some balance in it
-        calculated_root
+        old_note_balance_root
             .is_eq(&zero_balance_root)?
             .or(&is_nullifier_valid
                 .and(&is_identifier_valid)?
-                .and(&is_old_note_path_valid)?
-                .and(&is_old_balance_root_valid)?)?
+                .and(&is_old_note_path_valid)?)?
             .enforce_equal(&Boolean::TRUE)?;
 
         // Assert validity of new note balance root
-        Self::check_valid_balance_root(&parameters, &new_note_balance_root, &new_note_balances)?
-            .0
-            .enforce_equal(&Boolean::TRUE)?;
+        let new_note_balance_root = Self::calculate_balance_root(&parameters, &new_note_balances)?;
 
         // Assert validity of new note
         new_note.enforce_equal(&<HG as CRHGadget<H, F>>::evaluate(

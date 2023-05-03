@@ -3,12 +3,12 @@ use std::error::Error;
 use ark_bn254::Fr;
 use ark_ff::PrimeField;
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystem};
-use ark_std::{test_rng, UniformRand, Zero};
+use ark_std::{end_timer, start_timer, test_rng, UniformRand, Zero};
 
 use crate::{utils::mimc, MainCircuitBn254};
 
 type TestCircuit2Asset = MainCircuitBn254<2, 10>;
-type TestCircuitProdAsset = MainCircuitBn254<30, 25>;
+type TestCircuitProdAsset = MainCircuitBn254<10, 25>;
 
 #[test]
 pub fn num_constraints() -> Result<(), Box<dyn Error>> {
@@ -35,7 +35,9 @@ pub fn num_constraints() -> Result<(), Box<dyn Error>> {
 pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
     let rng = &mut test_rng();
     let mimc = mimc();
-    let (_, tree) = TestCircuit2Asset::empty(&mimc);
+    let tree_timer = start_timer!(|| "generating tree");
+    let (_, tree) = TestCircuitProdAsset::empty(&mimc);
+    end_timer!(tree_timer);
     let cs = ConstraintSystem::<Fr>::new_ref();
     //let (pk, vk) = Groth16::<Bn254>::circuit_specific_setup(circuit, rng)?;
 
@@ -47,10 +49,8 @@ pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
     let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
 
     let new_note_blinding = Fr::rand(rng);
-    let new_note_balance_root = diff_balance_root;
     let new_note_balances = diff_balances;
     let new_note = mimc.permute_non_feistel(vec![
-        new_note_balance_root,
         mimc.permute_non_feistel(vec![address, new_note_blinding])[0],
         //secret,
     ])[0];
@@ -66,11 +66,9 @@ pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
         old_note_identifier: Fr::zero(),
         old_note_path: tree.generate_proof(0).expect("should generate empty proof"),
         old_note_blinding: Fr::zero(),
-        old_note_balance_root: Fr::zero(),
         old_note_balances: [Fr::zero(); 2],
         new_note,
         new_note_blinding,
-        new_note_balance_root,
         new_note_balances,
         parameters: mimc,
         _hg: std::marker::PhantomData,

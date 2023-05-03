@@ -65,7 +65,6 @@ pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
         old_note_nullifier_hash: Fr::zero(),
         old_note_identifier: Fr::zero(),
         old_note_path: tree.generate_proof(0).expect("should generate empty proof"),
-        old_note_blinding: Fr::zero(),
         old_note_balances: [Fr::zero(); 2],
         new_note,
         new_note_blinding,

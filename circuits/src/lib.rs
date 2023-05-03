@@ -75,7 +75,6 @@ pub struct MainCircuit<
     pub old_note_nullifier_hash: F, // Public
     pub old_note_identifier: F,     // Public
     pub old_note_path: Path<P>,
-    pub old_note_blinding: F,
     pub old_note_balances: [F; N_ASSETS],
 
     pub new_note: F, // Public
@@ -140,7 +139,6 @@ impl<
                 old_note_path: empty_tree
                     .generate_proof(0)
                     .expect("should generate empty proof"),
-                old_note_blinding: F::zero(),
                 old_note_balances: [F::zero(); N_ASSETS],
                 new_note: F::zero(),
                 new_note_blinding: F::zero(),
@@ -167,7 +165,6 @@ impl<
                 auth_path: vec![F::zero(); TREE_DEPTH - 2],
                 leaf_index: 0,
             },
-            old_note_blinding: F::zero(),
             old_note_balances: [F::zero(); N_ASSETS],
             new_note: F::zero(),
             new_note_blinding: F::zero(),
@@ -226,8 +223,6 @@ impl<
         let old_note_path = PathVar::<P, HG, HG, F>::new_witness(ns!(cs, "old_note_path"), || {
             Ok(self.old_note_path)
         })?;
-        let old_note_blinding =
-            FpVar::new_witness(ns!(cs, "old_note_blinding"), || Ok(self.old_note_blinding))?;
         let old_note_balances = Vec::<FpVar<F>>::new_witness(ns!(cs, "old_note_balances"), || {
             Ok(self.old_note_balances.to_vec())
         })?;
@@ -265,14 +260,6 @@ impl<
                 &nullifier.to_bytes()?,
             )?)?;
 
-        // Calculate validity of old note identifier
-        let is_identifier_valid =
-            old_note_identifier.is_eq(&<HG as TwoToOneCRHGadget<H, F>>::evaluate(
-                &parameters,
-                &address.to_bytes()?,
-                &old_note_blinding.to_bytes()?,
-            )?)?;
-
         // Calculate validity of old note path
         let is_old_note_path_valid =
             old_note_path.verify_membership(&parameters, &parameters, &utxo_root, &old_note)?;
@@ -280,9 +267,7 @@ impl<
         // Assert validity of old note if there are some balance in it
         old_note_balance_root
             .is_eq(&zero_balance_root)?
-            .or(&is_nullifier_valid
-                .and(&is_identifier_valid)?
-                .and(&is_old_note_path_valid)?)?
+            .or(&is_nullifier_valid.and(&is_old_note_path_valid)?)?
             .enforce_equal(&Boolean::TRUE)?;
 
         // Assert validity of new note balance root

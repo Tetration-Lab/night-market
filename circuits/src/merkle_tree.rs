@@ -356,7 +356,6 @@ impl<
     /// Creates circuit to get index of a leaf hash
     pub fn get_index(
         &self,
-        root: &FpVar<F>,
         leaf: &FpVar<F>,
         hasher: &<HG as TwoToOneCRHGadget<H, F>>::ParametersVar,
     ) -> Result<FpVar<F>, SynthesisError> {
@@ -370,9 +369,9 @@ impl<
             // Check if the previous_hash is for a left node.
             let previous_is_left = previous_hash.is_eq(left_hash)?;
 
-            rightvalue = index.clone() + twopower.clone();
+            rightvalue = &index + &twopower;
             index = FpVar::<F>::conditionally_select(&previous_is_left, &index, &rightvalue)?;
-            twopower = twopower.clone() + twopower.clone();
+            twopower = &twopower + &twopower;
 
             previous_hash = <HG as TwoToOneCRHGadget<H, F>>::evaluate(
                 hasher,
@@ -380,10 +379,6 @@ impl<
                 &right_hash.to_bytes()?,
             )?;
         }
-
-        // Now check that path has the correct Merkle root
-        let is_on_path = previous_hash.is_eq(root)?;
-        is_on_path.enforce_equal(&Boolean::TRUE)?;
 
         Ok(index)
     }

@@ -21,24 +21,25 @@ use ark_relations::{
 };
 use arkworks_mimc::{
     constraints::{MiMCNonFeistelCRHGadget, MiMCVar},
-    params::mimc_5_220_bn254::MIMC_5_220_BN254_PARAMS,
+    params::mimc_7_91_bn254::MIMC_7_91_BN254_PARAMS,
     MiMC, MiMCNonFeistelCRH,
 };
 
 pub struct MiMCConfig;
+pub type MiMCParam = MIMC_7_91_BN254_PARAMS;
 pub type MainCircuitBn254<const N_ASSETS: usize, const TREE_DEPTH: usize> = MainCircuit<
     N_ASSETS,
     TREE_DEPTH,
     Fr,
-    MiMC<Fr, MIMC_5_220_BN254_PARAMS>,
-    MiMCVar<Fr, MIMC_5_220_BN254_PARAMS>,
-    MiMCNonFeistelCRH<Fr, MIMC_5_220_BN254_PARAMS>,
-    MiMCNonFeistelCRHGadget<Fr, MIMC_5_220_BN254_PARAMS>,
+    MiMC<Fr, MiMCParam>,
+    MiMCVar<Fr, MiMCParam>,
+    MiMCNonFeistelCRH<Fr, MiMCParam>,
+    MiMCNonFeistelCRHGadget<Fr, MiMCParam>,
     MiMCConfig,
 >;
 impl Config for MiMCConfig {
-    type LeafHash = MiMCNonFeistelCRH<Fr, MIMC_5_220_BN254_PARAMS>;
-    type TwoToOneHash = MiMCNonFeistelCRH<Fr, MIMC_5_220_BN254_PARAMS>;
+    type LeafHash = MiMCNonFeistelCRH<Fr, MiMCParam>;
+    type TwoToOneHash = MiMCNonFeistelCRH<Fr, MiMCParam>;
 }
 
 /// Main Circuit

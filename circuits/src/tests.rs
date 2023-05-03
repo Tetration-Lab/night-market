@@ -8,7 +8,7 @@ use ark_std::{test_rng, UniformRand, Zero};
 use crate::{utils::mimc, MainCircuitBn254};
 
 type TestCircuit2Asset = MainCircuitBn254<2, 10>;
-type TestCircuitProdAsset = MainCircuitBn254<10, 25>;
+type TestCircuitProdAsset = MainCircuitBn254<30, 25>;
 
 #[test]
 pub fn num_constraints() -> Result<(), Box<dyn Error>> {

@@ -420,3 +420,58 @@ impl<
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::BTreeMap, error::Error};
+
+    use ark_bn254::Fr;
+    use ark_r1cs_std::{
+        fields::fp::FpVar,
+        prelude::{AllocVar, Boolean, EqGadget},
+    };
+    use ark_relations::r1cs::ConstraintSystem;
+    use ark_std::{test_rng, UniformRand, Zero};
+    use arkworks_mimc::{
+        constraints::{MiMCNonFeistelCRHGadget, MiMCVar},
+        params::mimc_7_91_bn254::MIMC_7_91_BN254_PARAMS,
+        MiMCNonFeistelCRH,
+    };
+
+    use crate::utils::mimc;
+
+    use super::{PathVar, SparseMerkleTree};
+
+    #[test]
+    fn correct_constraints() -> Result<(), Box<dyn Error>> {
+        let cs = ConstraintSystem::<Fr>::new_ref();
+        let mimc = mimc();
+        let rng = &mut test_rng();
+        let leaf = Fr::rand(rng);
+        let tree = SparseMerkleTree::<Fr, MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS>, 10>::new(
+            &BTreeMap::from([(0, leaf)]),
+            &mimc,
+            &Fr::zero(),
+        )?;
+        let path = tree.generate_membership_proof(0);
+
+        let hasher_var = MiMCVar::new_constant(cs.clone(), mimc)?;
+        let leaf_var = FpVar::new_witness(cs.clone(), || Ok(leaf))?;
+        let root_var = FpVar::new_input(cs.clone(), || Ok(tree.root()))?;
+        let path_var =
+            PathVar::<Fr, MiMCNonFeistelCRH<_, _>, MiMCNonFeistelCRHGadget<_, _>, 10>::new_witness(
+                cs.clone(),
+                || Ok(path),
+            )?;
+        path_var
+            .check_membership(&root_var, &leaf_var, &hasher_var)?
+            .enforce_equal(&Boolean::FALSE)?;
+
+        assert!(
+            cs.is_satisfied().expect("should calculate satisfibility"),
+            "not satisfied"
+        );
+
+        Ok(())
+    }
+}

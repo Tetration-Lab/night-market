@@ -17,6 +17,8 @@ use ark_relations::{
 
 use crate::merkle_tree::{Path, PathVar, SparseMerkleTree};
 
+use super::gadgets::{calculate_balance_root, check_valid_balance_root};
+
 /// Main Circuit
 ///
 /// UTXO Note = H_crh(
@@ -69,31 +71,6 @@ impl<
             + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
     > MainCircuit<N_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG>
 {
-    pub fn calculate_balance_root(
-        hasher: &HPV,
-        balances: &[FpVar<F>],
-    ) -> Result<FpVar<F>, SynthesisError> {
-        <HG as CRHGadget<H, F>>::evaluate(
-            hasher,
-            &balances
-                .iter()
-                .flat_map(|e| match e.to_bytes() {
-                    Ok(bytes) => bytes.into_iter().map(Ok).collect::<Vec<_>>(),
-                    Err(err) => vec![Err(err)],
-                })
-                .collect::<Result<Vec<_>, _>>()?,
-        )
-    }
-
-    pub fn check_valid_balance_root(
-        hasher: &HPV,
-        balance_root: &FpVar<F>,
-        balances: &[FpVar<F>],
-    ) -> Result<Boolean<F>, SynthesisError> {
-        let calculated_root = Self::calculate_balance_root(hasher, balances)?;
-        balance_root.is_eq(&calculated_root)
-    }
-
     pub fn empty(hasher: &HP) -> (Self, SparseMerkleTree<F, H, TREE_DEPTH>) {
         let empty_tree = SparseMerkleTree::new(&BTreeMap::new(), hasher, &F::zero())
             .expect("should create empty tree");
@@ -199,11 +176,12 @@ impl<
         })?;
 
         // Assert validity of diff balance root
-        Self::check_valid_balance_root(&parameters, &diff_balance_root, &diff_balances)?
+        check_valid_balance_root::<F, H, HG>(&parameters, &diff_balance_root, &diff_balances)?
             .enforce_equal(&Boolean::TRUE)?;
 
         // Calculate old note balance root
-        let old_note_balance_root = Self::calculate_balance_root(&parameters, &old_note_balances)?;
+        let old_note_balance_root =
+            calculate_balance_root::<F, H, HG>(&parameters, &old_note_balances)?;
 
         // Calculate old note
         let old_note = <HG as CRHGadget<H, F>>::evaluate(
@@ -235,7 +213,8 @@ impl<
             .enforce_equal(&Boolean::TRUE)?;
 
         // Assert validity of new note balance root
-        let new_note_balance_root = Self::calculate_balance_root(&parameters, &new_note_balances)?;
+        let new_note_balance_root =
+            calculate_balance_root::<F, H, HG>(&parameters, &new_note_balances)?;
 
         // Assert validity of new note
         new_note.enforce_equal(&<HG as CRHGadget<H, F>>::evaluate(

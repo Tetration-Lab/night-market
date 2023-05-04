@@ -1,3 +1,5 @@
+//! Utilities and helper function
+
 use ark_bn254::Fr;
 use ark_std::Zero;
 use arkworks_mimc::{

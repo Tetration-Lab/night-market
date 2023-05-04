@@ -1,3 +1,8 @@
+//! Sparse Merkle Tree implementation.
+//!
+//! Modified from [Webb tools](https://github.com/webb-tools/zero-knowledge-gadgets) to support
+//! generic hashers from `Arkworks` [TwoToOneCRH] and [TwoToOneCRHGadget] traits.
+
 use std::{
     borrow::Borrow,
     collections::{BTreeMap, BTreeSet},

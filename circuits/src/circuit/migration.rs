@@ -20,13 +20,13 @@ use super::gadgets::calculate_balance_root;
 /// Migration Circuit
 ///
 /// Old UTXO Note = H_crh(
-///     balance_root: H_crh([balance; N_ASSETS]),
+///     balance_root: H_crh(\[balance; N_ASSETS\]),
 ///     identifier,
 ///     nullifier
 /// )
 ///
 /// New UTXO Note = H_crh(
-///     balance_root: H_crh([balance; M_ASSETS]),
+///     balance_root: H_crh(\[balance; M_ASSETS\]),
 ///     identifier,
 ///     nullifier
 /// )

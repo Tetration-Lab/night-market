@@ -5,10 +5,11 @@ use ark_ff::PrimeField;
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystem};
 use ark_std::{test_rng, UniformRand, Zero};
 
-use crate::{utils::mimc, MainCircuitBn254};
+use crate::{utils::mimc, MainCircuitBn254, MigrationCircuitBn254};
 
 type TestCircuit2Asset = MainCircuitBn254<3, 10>;
 type TestCircuitProdAsset = MainCircuitBn254<10, 25>;
+type TestMigration = MigrationCircuitBn254<3, 10, 25>;
 
 #[test]
 pub fn num_constraints() -> Result<(), Box<dyn Error>> {
@@ -25,6 +26,14 @@ pub fn num_constraints() -> Result<(), Box<dyn Error>> {
 
     println!(
         "Prod Constraints {}",
+        cs.num_constraints() + cs.num_instance_variables()
+    );
+
+    let cs = ConstraintSystem::new_ref();
+    TestMigration::empty_without_tree(&mimc()).generate_constraints(cs.clone())?;
+
+    println!(
+        "Migration Constraints {}",
         cs.num_constraints() + cs.num_instance_variables()
     );
 

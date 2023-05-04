@@ -67,6 +67,38 @@ impl<
         H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
         HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
             + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
+    > MigrationCircuit<N_ASSETS, M_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG>
+{
+    pub fn empty_without_tree(hasher: &HP) -> Self {
+        Self {
+            address: F::zero(),
+            nullifier: F::zero(),
+            utxo_root: F::zero(),
+            old_note_nullifier_hash: F::zero(),
+            old_note_blinding: F::zero(),
+            old_note_path: Path {
+                path: [(F::zero(), F::zero()); TREE_DEPTH],
+                marker: std::marker::PhantomData,
+            },
+            old_note_balances: [F::zero(); N_ASSETS],
+            new_note: F::zero(),
+            new_note_balances: [F::zero(); M_ASSETS],
+            parameters: hasher.clone(),
+            _hg: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<
+        const N_ASSETS: usize,
+        const M_ASSETS: usize,
+        const TREE_DEPTH: usize,
+        F: PrimeField,
+        HP: Clone,
+        HPV: AllocVar<HP, F>,
+        H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
+        HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
+            + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
     > ConstraintSynthesizer<F>
     for MigrationCircuit<N_ASSETS, M_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG>
 {

@@ -145,14 +145,7 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> SparseMerkleTree
         for (i, leaf) in leaves {
             let true_index = last_level_index + (*i as u64);
             self.tree.insert(true_index, *leaf);
-            level_idxs.insert(
-                if true_index > 0 {
-                    Some((true_index - 1) >> 1)
-                } else {
-                    None
-                }
-                .unwrap(),
-            );
+            level_idxs.insert((true_index - 1) >> 1);
         }
 
         for level in 0..N {
@@ -168,9 +161,9 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> SparseMerkleTree
                     <H as TwoToOneCRH>::evaluate(hasher, &to_bytes!(left)?, &to_bytes!(right)?)?;
                 self.tree.insert(i, hashed);
 
-                let parent = match if i > 0 { Some((i - 1) >> 1) } else { None } {
-                    Some(i) => i,
-                    None => break,
+                let parent = match i > 0 {
+                    true => (i - 1) >> 1,
+                    false => break,
                 };
                 new_idxs.insert(parent);
             }
@@ -258,15 +251,12 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> SparseMerkleTree
         // Iterate from the leaf up to the root, storing all intermediate hash values.
         let mut current_node = tree_index;
         let mut level = 0;
-        while !current_node == 0 {
-            let sibling_node = if current_node == 0 {
-                None
-            } else if current_node % 2 == 1 {
-                Some(current_node + 1)
+        while current_node != 0 {
+            let sibling_node = if current_node % 2 == 1 {
+                current_node + 1
             } else {
-                Some(current_node - 1)
-            }
-            .unwrap();
+                current_node - 1
+            };
 
             let empty_hash = &self.empty_hashes[level];
 
@@ -278,12 +268,7 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> SparseMerkleTree
             } else {
                 path[level] = (sibling, current);
             }
-            current_node = if current_node > 0 {
-                Some((current_node - 1) >> 1)
-            } else {
-                None
-            }
-            .unwrap();
+            current_node = (current_node - 1) >> 1;
             level += 1;
         }
 
@@ -448,7 +433,7 @@ mod tests {
         let mimc = mimc();
         let rng = &mut test_rng();
         let leaf = Fr::rand(rng);
-        let tree = SparseMerkleTree::<Fr, MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS>, 10>::new(
+        let tree = SparseMerkleTree::<Fr, MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS>, 3>::new(
             &BTreeMap::from([(0, leaf)]),
             &mimc,
             &Fr::zero(),
@@ -459,13 +444,13 @@ mod tests {
         let leaf_var = FpVar::new_witness(cs.clone(), || Ok(leaf))?;
         let root_var = FpVar::new_input(cs.clone(), || Ok(tree.root()))?;
         let path_var =
-            PathVar::<Fr, MiMCNonFeistelCRH<_, _>, MiMCNonFeistelCRHGadget<_, _>, 10>::new_witness(
+            PathVar::<Fr, MiMCNonFeistelCRH<_, _>, MiMCNonFeistelCRHGadget<_, _>, 3>::new_witness(
                 cs.clone(),
                 || Ok(path),
             )?;
         path_var
             .check_membership(&root_var, &leaf_var, &hasher_var)?
-            .enforce_equal(&Boolean::FALSE)?;
+            .enforce_equal(&Boolean::TRUE)?;
 
         assert!(
             cs.is_satisfied().expect("should calculate satisfibility"),

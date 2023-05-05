@@ -14,12 +14,15 @@ use ark_std::Zero;
 use arkworks_mimc::utils::to_field_elements;
 use circuits::{utils::mimc, TREE_DEPTH};
 use cosmwasm_std::{
-    entry_point, to_vec, Deps, DepsMut, Env, MessageInfo, QueryResponse, Response, Uint128,
+    entry_point, to_binary, to_vec, Deps, DepsMut, Env, MessageInfo, Order, QueryResponse,
+    Response, Uint128,
 };
 use cw_merkle_tree::MerkleTree;
+use cw_storage_plus::Bound;
 use error::ContractError;
 use hasher::MiMCHasher;
 use msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use serde_json::json;
 use state::{ADMIN, ASSETS, MAIN_CIRCUIT_VK, NULLIFIER, TREE};
 
 #[entry_point]
@@ -283,8 +286,34 @@ pub fn execute(
 }
 
 #[entry_point]
-pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> Result<QueryResponse, ContractError> {
-    Ok(QueryResponse::default())
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<QueryResponse, ContractError> {
+    match msg {
+        QueryMsg::Assets {} => Ok(to_binary(&ASSETS.load(deps.storage)?)?),
+        QueryMsg::Root {} => Ok(to_binary(&TREE.get_latest_root(deps.storage)?)?),
+        QueryMsg::Notes {
+            limit,
+            start_after,
+            is_ascending,
+        } => {
+            let bound = match is_ascending.unwrap_or(true) {
+                true => (start_after.map(Bound::exclusive), None, Order::Ascending),
+                false => (None, start_after.map(Bound::exclusive), Order::Descending),
+            };
+            let notes = TREE
+                .tree
+                .leafs
+                .range(deps.storage, bound.0, bound.1, bound.2)
+                .take(limit.unwrap_or(100))
+                .map(|e| -> Result<_, ContractError> { Ok(e?.1) })
+                .collect::<Result<Vec<_>, _>>()?;
+            let latest_index = start_after.unwrap_or_default() + notes.len() as u64;
+
+            Ok(to_binary(&json!({
+                "notes": notes,
+                "latest_index": latest_index,
+            }))?)
+        }
+    }
 }
 
 #[entry_point]

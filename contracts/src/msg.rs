@@ -42,7 +42,15 @@ pub enum ExecuteMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "snake_case")]
-pub enum QueryMsg {}
+pub enum QueryMsg {
+    Assets {},
+    Root {},
+    Notes {
+        limit: Option<usize>,
+        start_after: Option<u64>,
+        is_ascending: Option<bool>,
+    },
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MigrateMsg {}

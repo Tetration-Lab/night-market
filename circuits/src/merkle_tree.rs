@@ -9,10 +9,7 @@ use std::{
     marker::PhantomData,
 };
 
-use ark_crypto_primitives::{
-    crh::{TwoToOneCRH, TwoToOneCRHGadget},
-    Error,
-};
+use ark_crypto_primitives::crh::{TwoToOneCRH, TwoToOneCRHGadget};
 use ark_ff::{to_bytes, PrimeField};
 use ark_r1cs_std::{
     fields::fp::FpVar,
@@ -29,9 +26,28 @@ pub enum MerkleError {
     /// Thrown when the given leaf is not in the tree or the path.
     #[error("Invalid leaf")]
     InvalidLeaf,
+
     /// Thrown when the merkle path is invalid.
     #[error("Path nodes are not consistent")]
     InvalidPathNodes,
+
+    #[error("Io: {0}")]
+    Io(String),
+
+    #[error("Std: {0}")]
+    Std(String),
+}
+
+impl From<ark_std::io::Error> for MerkleError {
+    fn from(e: ark_std::io::Error) -> Self {
+        MerkleError::Io(e.to_string())
+    }
+}
+
+impl From<Box<dyn ark_std::error::Error>> for MerkleError {
+    fn from(e: Box<dyn ark_std::error::Error>) -> Self {
+        MerkleError::Std(e.to_string())
+    }
 }
 
 /// The Path struct.
@@ -56,7 +72,7 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> Path<F, H, N> {
         root_hash: &F,
         leaf: &F,
         hasher: &<H as TwoToOneCRH>::Parameters,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool, MerkleError> {
         let root = self.calculate_root(leaf, hasher)?;
         Ok(root == *root_hash)
     }
@@ -67,7 +83,7 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> Path<F, H, N> {
         &self,
         leaf: &F,
         hasher: &<H as TwoToOneCRH>::Parameters,
-    ) -> Result<F, Error> {
+    ) -> Result<F, MerkleError> {
         if *leaf != self.path[0].0 && *leaf != self.path[0].1 {
             return Err(MerkleError::InvalidLeaf.into());
         }
@@ -96,7 +112,7 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> Path<F, H, N> {
         root_hash: &F,
         leaf: &F,
         hasher: &<H as TwoToOneCRH>::Parameters,
-    ) -> Result<F, Error> {
+    ) -> Result<F, MerkleError> {
         if !self.check_membership(root_hash, leaf, hasher)? {
             return Err(MerkleError::InvalidLeaf.into());
         }
@@ -143,7 +159,7 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> SparseMerkleTree
         &mut self,
         leaves: &BTreeMap<u32, F>,
         hasher: &<H as TwoToOneCRH>::Parameters,
-    ) -> Result<(), Error> {
+    ) -> Result<(), MerkleError> {
         let last_level_index: u64 = (1u64 << N) - 1;
 
         let mut level_idxs: BTreeSet<u64> = BTreeSet::new();
@@ -184,7 +200,7 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> SparseMerkleTree
         leaves: &BTreeMap<u32, F>,
         hasher: &<H as TwoToOneCRH>::Parameters,
         empty_leaf: &F,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, MerkleError> {
         // Ensure the tree can hold this many leaves
         let last_level_size = leaves.len().next_power_of_two();
         let tree_size = 2 * last_level_size - 1;
@@ -208,7 +224,7 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> SparseMerkleTree
                 empty_hashes[i] = empty_hash;
             }
 
-            Result::<_, Error>::Ok(empty_hashes)
+            Result::<_, MerkleError>::Ok(empty_hashes)
         }?;
 
         let mut smt = SparseMerkleTree::<F, H, N> {
@@ -226,7 +242,7 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> SparseMerkleTree
         leaves: &[F],
         hasher: &<H as TwoToOneCRH>::Parameters,
         empty_leaf: &F,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, MerkleError> {
         let pairs: BTreeMap<u32, F> = leaves
             .iter()
             .enumerate()

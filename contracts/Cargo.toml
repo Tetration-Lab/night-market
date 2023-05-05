@@ -13,6 +13,7 @@ overflow-checks = true
 [dependencies]
 cosmwasm-std = "1.2.5"
 cw-storage-plus = "1.0.1"
+cw-controllers = "1.0.1"
 cw-merkle-tree = "0.3.0"
 serde = { version = "1.0.145", default-features = false, features = ["derive"] }
 thiserror = "1.0.40"
@@ -28,4 +29,6 @@ ark-std = { version = "^0.3.0", default-features = false }
 ark-relations = { version = "^0.3.0", default-features = false }
 ark-crypto-primitives = { version = "^0.3.0", default-features = false }
 ark-bn254 = { version = "^0.3.0", default-features = false, features = ["curve"] }
+ark-groth16 = { version = "^0.3.0", default-features = false }
+ark-serialize = { version = "^0.3.0", default-features = false }
 arkworks-mimc = { version = "0.3.0", default-features = false, features = ["r1cs", "mimc-7-91-bn254"] }

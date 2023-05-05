@@ -355,6 +355,7 @@ dependencies = [
  "hex",
  "osmosis-std",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 

@@ -7,7 +7,7 @@ use ark_crypto_primitives::{
 use ark_ff::{to_bytes, PrimeField};
 use ark_r1cs_std::{
     fields::fp::FpVar,
-    prelude::{AllocVar, Boolean, EqGadget},
+    prelude::{AllocVar, Boolean, EqGadget, FieldVar},
     ToBytesGadget,
 };
 use ark_relations::{
@@ -213,6 +213,7 @@ impl<
         // Assert validity of old note if there are some balance in it
         old_note_balance_root
             .is_eq(&zero_balance_root)?
+            .and(&old_note_nullifier_hash.is_eq(&FpVar::zero())?)?
             .or(&is_nullifier_valid.and(&is_old_note_path_valid)?)?
             .enforce_equal(&Boolean::TRUE)?;
 

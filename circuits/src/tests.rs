@@ -5,10 +5,10 @@ use ark_ff::PrimeField;
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystem};
 use ark_std::{test_rng, UniformRand, Zero};
 
-use crate::{utils::mimc, MainCircuitBn254, MigrationCircuitBn254};
+use crate::{utils::mimc, MainCircuitBn254, MigrationCircuitBn254, N_ASSETS, TREE_DEPTH};
 
 type TestCircuit2Asset = MainCircuitBn254<3, 10>;
-type TestCircuitProdAsset = MainCircuitBn254<10, 25>;
+type TestCircuitProdAsset = MainCircuitBn254<{ N_ASSETS }, { TREE_DEPTH }>;
 type TestMigration = MigrationCircuitBn254<3, 10, 25>;
 
 #[test]

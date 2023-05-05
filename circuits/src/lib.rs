@@ -13,6 +13,9 @@ mod types {
 
     use crate::circuit::{main::MainCircuit, migration::MigrationCircuit};
 
+    pub const TREE_DEPTH: usize = 25;
+    pub const N_ASSETS: usize = 7;
+
     pub type MiMCParam = MIMC_7_91_BN254_PARAMS;
     pub type MainCircuitBn254<const N_ASSETS: usize, const TREE_DEPTH: usize> = MainCircuit<
         N_ASSETS,

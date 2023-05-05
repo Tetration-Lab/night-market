@@ -21,16 +21,16 @@ use ark_r1cs_std::{
     ToBytesGadget,
 };
 use ark_relations::r1cs::{Namespace, SynthesisError};
-use thiserror::Error;
+use thiserror::Error as ThisError;
 
 /// Error enum for Sparse Merkle Tree.
-#[derive(Error, Debug)]
+#[derive(ThisError, Debug)]
 pub enum MerkleError {
-    #[error("Invalid leaf")]
     /// Thrown when the given leaf is not in the tree or the path.
+    #[error("Invalid leaf")]
     InvalidLeaf,
-    #[error("Path nodes are not consistent")]
     /// Thrown when the merkle path is invalid.
+    #[error("Path nodes are not consistent")]
     InvalidPathNodes,
 }
 

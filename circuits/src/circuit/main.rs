@@ -42,6 +42,7 @@ pub struct MainCircuit<
 > {
     pub address: F,
     pub nullifier: F,
+    pub aux: F,       // Public
     pub utxo_root: F, // Public
 
     pub diff_balance_root: F, // Public
@@ -78,6 +79,7 @@ impl<
             Self {
                 address: F::zero(),
                 nullifier: F::zero(),
+                aux: F::zero(),
                 utxo_root: F::zero(),
                 diff_balance_root: F::zero(),
                 diff_balances: [F::zero(); N_ASSETS],
@@ -99,6 +101,7 @@ impl<
         Self {
             address: F::zero(),
             nullifier: F::zero(),
+            aux: F::zero(),
             utxo_root: F::zero(),
             diff_balance_root: F::zero(),
             diff_balances: [F::zero(); N_ASSETS],
@@ -146,6 +149,7 @@ impl<
         let address = FpVar::new_witness(ns!(cs, "address"), || Ok(self.address))?;
         let nullifier = FpVar::new_witness(ns!(cs, "nullifier"), || Ok(self.nullifier))?;
 
+        let _aux = FpVar::new_input(ns!(cs, "aux"), || Ok(self.aux))?;
         let utxo_root = FpVar::new_input(ns!(cs, "utxo_root"), || Ok(self.utxo_root))?;
 
         let diff_balance_root =

@@ -65,6 +65,7 @@ pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
     let circuit = TestCircuit2Asset {
         address,
         nullifier,
+        aux: Fr::zero(),
         utxo_root: tree.root(),
         diff_balance_root,
         diff_balances,
@@ -121,6 +122,7 @@ pub fn deposit_subsequent() -> Result<(), Box<dyn Error>> {
     let circuit = TestCircuit2Asset {
         address,
         nullifier,
+        aux: Fr::zero(),
         utxo_root: tree.root(),
         diff_balance_root,
         diff_balances,
@@ -178,6 +180,7 @@ pub fn diff_swap_plus_fee() -> Result<(), Box<dyn Error>> {
     let circuit = TestCircuit2Asset {
         address,
         nullifier,
+        aux: Fr::zero(),
         utxo_root: tree.root(),
         diff_balance_root,
         diff_balances,
@@ -224,6 +227,7 @@ pub fn cannot_withdraw_empty() -> Result<(), Box<dyn Error>> {
     let circuit = TestCircuit2Asset {
         address,
         nullifier,
+        aux: Fr::zero(),
         utxo_root: tree.root(),
         diff_balance_root,
         diff_balances,

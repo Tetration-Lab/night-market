@@ -288,6 +288,7 @@ pub fn execute(
 #[entry_point]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<QueryResponse, ContractError> {
     match msg {
+        QueryMsg::Admin {} => Ok(to_binary(&ADMIN.get(deps)?)?),
         QueryMsg::Assets {} => Ok(to_binary(&ASSETS.load(deps.storage)?)?),
         QueryMsg::Root {} => Ok(to_binary(&TREE.get_latest_root(deps.storage)?)?),
         QueryMsg::Notes {

@@ -43,6 +43,7 @@ pub enum ExecuteMsg {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
+    Admin {},
     Assets {},
     Root {},
     Notes {

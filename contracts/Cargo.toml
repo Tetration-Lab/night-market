@@ -1,0 +1,31 @@
+[package]
+name = "contracts"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+panic = 'abort'
+overflow-checks = true
+
+[dependencies]
+cosmwasm-std = "1.2.5"
+cw-storage-plus = "1.0.1"
+cw-merkle-tree = "0.3.0"
+serde = { version = "1.0.145", default-features = false, features = ["derive"] }
+thiserror = "1.0.40"
+hex = { version =  "0.4.3", default-features = false }
+
+osmosis-std = "0.15.2"
+
+circuits = { path = "../circuits" }
+
+ark-ff = { version = "^0.3.0", default-features = false }
+ark-r1cs-std = { version = "^0.3.0", default-features = false }
+ark-std = { version = "^0.3.0", default-features = false }
+ark-relations = { version = "^0.3.0", default-features = false }
+ark-crypto-primitives = { version = "^0.3.0", default-features = false }
+ark-bn254 = { version = "^0.3.0", default-features = false, features = ["curve"] }
+arkworks-mimc = { version = "0.3.0", default-features = false, features = ["r1cs", "mimc-7-91-bn254"] }

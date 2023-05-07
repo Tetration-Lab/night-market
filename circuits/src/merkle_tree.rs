@@ -64,6 +64,14 @@ pub struct Path<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> {
 }
 
 impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> Path<F, H, N> {
+    /// Creates a new empty path.
+    pub fn empty() -> Self {
+        Self {
+            path: [(F::zero(), F::zero()); N],
+            marker: PhantomData,
+        }
+    }
+
     /// Takes in an expected `root_hash` and leaf-level data (i.e. hashes of
     /// secrets) for a leaf and checks that the leaf belongs to a tree having
     /// the expected hash.

@@ -6,7 +6,11 @@ pub mod state;
 #[cfg(test)]
 mod test;
 
-use std::{collections::BTreeMap, ops::Neg, str::FromStr};
+use std::{
+    collections::BTreeMap,
+    ops::{Neg, Not},
+    str::FromStr,
+};
 
 use ark_bn254::{Bn254, Fr};
 use ark_crypto_primitives::SNARK;
@@ -85,6 +89,7 @@ pub fn execute(
                 let nullifier_normalized = nullifier_hash.into_repr().to_bytes_le();
                 NULLIFIER
                     .has(deps.storage, &nullifier_normalized)
+                    .not()
                     .then_some(())
                     .ok_or(ContractError::UsedNullifier)?;
                 NULLIFIER.save(deps.storage, &nullifier_normalized, &())?;
@@ -194,6 +199,7 @@ pub fn execute(
             let nullifier_normalized = nullifier_hash.into_repr().to_bytes_le();
             NULLIFIER
                 .has(deps.storage, &nullifier_normalized)
+                .not()
                 .then_some(())
                 .ok_or(ContractError::UsedNullifier)?;
             NULLIFIER.save(deps.storage, &nullifier_normalized, &())?;
@@ -256,6 +262,7 @@ pub fn execute(
             let nullifier_normalized = nullifier_hash.into_repr().to_bytes_le();
             NULLIFIER
                 .has(deps.storage, &nullifier_normalized)
+                .not()
                 .then_some(())
                 .ok_or(ContractError::UsedNullifier)?;
             NULLIFIER.save(deps.storage, &nullifier_normalized, &())?;

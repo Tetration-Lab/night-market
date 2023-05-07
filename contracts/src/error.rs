@@ -39,6 +39,9 @@ pub enum ContractError {
 
     #[error("Invalid Asset Swap Denom")]
     InvalidSwapDenom,
+
+    #[error("Invalid UTXO Tree Root")]
+    InvalidRoot,
 }
 
 impl From<SerializationError> for ContractError {

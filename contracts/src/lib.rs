@@ -3,6 +3,9 @@ pub mod hasher;
 pub mod msg;
 pub mod state;
 
+#[cfg(test)]
+mod test;
+
 use std::{collections::BTreeMap, ops::Neg, str::FromStr};
 
 use ark_bn254::{Bn254, Fr};
@@ -70,6 +73,14 @@ pub fn execute(
             let proof = Proof::deserialize(&hex::decode(&proof)?[..])?;
             let nullifier_hash = Fr::from_le_bytes_mod_order(&hex::decode(&nullifier_hash)?);
 
+            let tree_root = Fr::from_le_bytes_mod_order(&hex::decode(&root)?);
+            if tree_root != Fr::zero() {
+                let tree_root_normalized = hex::encode(&tree_root.into_repr().to_bytes_le());
+                TREE.is_valid_root(deps.storage, &tree_root_normalized)?
+                    .then_some(())
+                    .ok_or(ContractError::InvalidRoot)?;
+            }
+
             if nullifier_hash != Fr::zero() {
                 let nullifier_normalized = nullifier_hash.into_repr().to_bytes_le();
                 NULLIFIER
@@ -97,7 +108,7 @@ pub fn execute(
                 &vk,
                 &[
                     Fr::zero(),
-                    Fr::from_le_bytes_mod_order(&hex::decode(&root)?),
+                    tree_root,
                     diff_balance_root,
                     nullifier_hash,
                     Fr::from_le_bytes_mod_order(&hex::decode(&identifier)?),
@@ -187,11 +198,17 @@ pub fn execute(
                 .ok_or(ContractError::UsedNullifier)?;
             NULLIFIER.save(deps.storage, &nullifier_normalized, &())?;
 
+            let tree_root = Fr::from_le_bytes_mod_order(&hex::decode(&root)?);
+            let tree_root_normalized = hex::encode(&tree_root.into_repr().to_bytes_le());
+            TREE.is_valid_root(deps.storage, &tree_root_normalized)?
+                .then_some(())
+                .ok_or(ContractError::InvalidRoot)?;
+
             let is_valid = Groth16::verify(
                 &vk,
                 &[
                     aux,
-                    Fr::from_le_bytes_mod_order(&hex::decode(&root)?),
+                    tree_root,
                     diff_balance_root,
                     nullifier_hash,
                     Fr::from_le_bytes_mod_order(&hex::decode(&identifier)?),
@@ -243,6 +260,12 @@ pub fn execute(
                 .ok_or(ContractError::UsedNullifier)?;
             NULLIFIER.save(deps.storage, &nullifier_normalized, &())?;
 
+            let tree_root = Fr::from_le_bytes_mod_order(&hex::decode(&root)?);
+            let tree_root_normalized = hex::encode(&tree_root.into_repr().to_bytes_le());
+            TREE.is_valid_root(deps.storage, &tree_root_normalized)?
+                .then_some(())
+                .ok_or(ContractError::InvalidRoot)?;
+
             let diff_balance_root = mimc.permute_non_feistel(
                 assets
                     .iter()
@@ -262,7 +285,7 @@ pub fn execute(
                 &vk,
                 &[
                     Fr::zero(),
-                    Fr::from_le_bytes_mod_order(&hex::decode(&root)?),
+                    tree_root,
                     diff_balance_root,
                     nullifier_hash,
                     identifier,

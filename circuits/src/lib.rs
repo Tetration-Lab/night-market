@@ -11,7 +11,11 @@ mod types {
         MiMC, MiMCNonFeistelCRH,
     };
 
-    use crate::circuit::{main::MainCircuit, migration::MigrationCircuit};
+    use crate::circuit::{
+        main::MainCircuit,
+        main_splitted::{MainSettleCircuit, MainSpendCircuit},
+        migration::MigrationCircuit,
+    };
 
     pub const TREE_DEPTH: usize = 25;
     pub const N_ASSETS: usize = 7;
@@ -40,6 +44,26 @@ mod types {
         MiMCNonFeistelCRH<Fr, MiMCParam>,
         MiMCNonFeistelCRHGadget<Fr, MiMCParam>,
     >;
+    pub type SplittedSpendCircuitBn254<const N_ASSETS: usize, const TREE_DEPTH: usize> =
+        MainSpendCircuit<
+            N_ASSETS,
+            TREE_DEPTH,
+            Fr,
+            MiMC<Fr, MiMCParam>,
+            MiMCVar<Fr, MiMCParam>,
+            MiMCNonFeistelCRH<Fr, MiMCParam>,
+            MiMCNonFeistelCRHGadget<Fr, MiMCParam>,
+        >;
+    pub type SplittedSettleCircuitBn254<const N_ASSETS: usize, const TREE_DEPTH: usize> =
+        MainSettleCircuit<
+            N_ASSETS,
+            TREE_DEPTH,
+            Fr,
+            MiMC<Fr, MiMCParam>,
+            MiMCVar<Fr, MiMCParam>,
+            MiMCNonFeistelCRH<Fr, MiMCParam>,
+            MiMCNonFeistelCRHGadget<Fr, MiMCParam>,
+        >;
 }
 
 #[cfg(test)]

@@ -93,14 +93,14 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> Path<F, H, N> {
         hasher: &<H as TwoToOneCRH>::Parameters,
     ) -> Result<F, MerkleError> {
         if *leaf != self.path[0].0 && *leaf != self.path[0].1 {
-            return Err(MerkleError::InvalidLeaf.into());
+            return Err(MerkleError::InvalidLeaf);
         }
 
         let mut prev = *leaf;
         // Check levels between leaf level and root
         for (left_hash, right_hash) in &self.path {
             if &prev != left_hash && &prev != right_hash {
-                return Err(MerkleError::InvalidPathNodes.into());
+                return Err(MerkleError::InvalidPathNodes);
             }
             prev = <H as TwoToOneCRH>::evaluate(
                 hasher,
@@ -122,7 +122,7 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> Path<F, H, N> {
         hasher: &<H as TwoToOneCRH>::Parameters,
     ) -> Result<F, MerkleError> {
         if !self.check_membership(root_hash, leaf, hasher)? {
-            return Err(MerkleError::InvalidLeaf.into());
+            return Err(MerkleError::InvalidLeaf);
         }
 
         let mut prev = *leaf;
@@ -223,13 +223,13 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> SparseMerkleTree
             let mut empty_hash = *empty_leaf;
             empty_hashes[0] = empty_hash;
 
-            for i in 1..N {
+            for hash in empty_hashes.iter_mut().skip(1) {
                 empty_hash = <H as TwoToOneCRH>::evaluate(
                     hasher,
                     &to_bytes!(empty_hash)?,
                     &to_bytes!(empty_hash)?,
                 )?;
-                empty_hashes[i] = empty_hash;
+                *hash = empty_hash;
             }
 
             Result::<_, MerkleError>::Ok(empty_hashes)

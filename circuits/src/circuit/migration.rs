@@ -193,13 +193,15 @@ impl<
         )?)?;
 
         // Assert that old note balances are equal to new note balances
-        for i in 0..N_ASSETS {
-            old_note_balances[i].enforce_equal(&new_note_balances[i])?;
+        for (old_note_balance, new_note_balance) in
+            old_note_balances.iter().zip(new_note_balances.iter())
+        {
+            old_note_balance.enforce_equal(new_note_balance)?;
         }
 
         // Assert that new note balances are zero for all other assets
-        for i in N_ASSETS..M_ASSETS {
-            new_note_balances[i].enforce_equal(&zero)?;
+        for new_note_balance in new_note_balances.iter().skip(N_ASSETS) {
+            new_note_balance.enforce_equal(&zero)?;
         }
 
         Ok(())

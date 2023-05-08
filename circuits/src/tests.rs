@@ -4,12 +4,38 @@ use ark_bn254::Fr;
 use ark_ff::PrimeField;
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystem};
 use ark_std::{test_rng, UniformRand, Zero};
+use arkworks_mimc::{
+    constraints::{MiMCNonFeistelCRHGadget, MiMCVar},
+    MiMC, MiMCNonFeistelCRH,
+};
 
-use crate::{utils::mimc, MainCircuitBn254, MigrationCircuitBn254, N_ASSETS, TREE_DEPTH};
+use crate::{
+    circuit::main_splitted::{MainSettleCircuit, MainSpendCircuit},
+    utils::mimc,
+    MainCircuitBn254, MiMCParam, MigrationCircuitBn254, N_ASSETS, TREE_DEPTH,
+};
 
 type TestCircuit2Asset = MainCircuitBn254<3, 10>;
 type TestCircuitProdAsset = MainCircuitBn254<{ N_ASSETS }, { TREE_DEPTH }>;
 type TestMigration = MigrationCircuitBn254<3, 10, 25>;
+type TestMainSpendProd = MainSpendCircuit<
+    N_ASSETS,
+    TREE_DEPTH,
+    Fr,
+    MiMC<Fr, MiMCParam>,
+    MiMCVar<Fr, MiMCParam>,
+    MiMCNonFeistelCRH<Fr, MiMCParam>,
+    MiMCNonFeistelCRHGadget<Fr, MiMCParam>,
+>;
+type TestMainSettleProd = MainSettleCircuit<
+    N_ASSETS,
+    TREE_DEPTH,
+    Fr,
+    MiMC<Fr, MiMCParam>,
+    MiMCVar<Fr, MiMCParam>,
+    MiMCNonFeistelCRH<Fr, MiMCParam>,
+    MiMCNonFeistelCRHGadget<Fr, MiMCParam>,
+>;
 
 #[test]
 pub fn num_constraints() -> Result<(), Box<dyn Error>> {
@@ -34,6 +60,22 @@ pub fn num_constraints() -> Result<(), Box<dyn Error>> {
 
     println!(
         "Migration Constraints {}",
+        cs.num_constraints() + cs.num_instance_variables()
+    );
+
+    let cs = ConstraintSystem::new_ref();
+    TestMainSpendProd::empty_without_tree(&mimc()).generate_constraints(cs.clone())?;
+
+    println!(
+        "Splitted Spend Constraints {}",
+        cs.num_constraints() + cs.num_instance_variables()
+    );
+
+    let cs = ConstraintSystem::new_ref();
+    TestMainSettleProd::empty_without_tree(&mimc()).generate_constraints(cs.clone())?;
+
+    println!(
+        "Splitted Settle Constraints {}",
         cs.num_constraints() + cs.num_instance_variables()
     );
 

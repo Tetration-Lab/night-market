@@ -1,6 +1,9 @@
 use ark_bn254::Fr;
+use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use ark_std::{UniformRand, Zero};
 use circuits::N_ASSETS;
+use rand::rngs::OsRng;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Asset(pub [u128; N_ASSETS]);
@@ -11,6 +14,17 @@ pub struct Account {
     pub nullifier: Fr,
     pub latest_blinding: Fr,
     pub address: Fr,
+}
+
+impl Account {
+    pub fn new(address: String) -> Self {
+        Self {
+            balance: Asset([0; N_ASSETS]),
+            nullifier: Fr::rand(&mut OsRng),
+            latest_blinding: Fr::zero(),
+            address: Fr::from_le_bytes_mod_order(address.as_bytes()),
+        }
+    }
 }
 
 impl CanonicalSerialize for Asset {

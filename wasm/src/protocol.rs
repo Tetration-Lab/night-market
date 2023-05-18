@@ -31,7 +31,9 @@ impl AssetDiff {
 #[wasm_bindgen]
 pub struct Protocol;
 
+#[wasm_bindgen]
 impl Protocol {
+    #[wasm_bindgen]
     pub fn deposit(
         pk: &[u8],
         account: &Account,
@@ -123,6 +125,7 @@ impl Protocol {
         .expect("Failed to serialize to js value")
     }
 
+    #[wasm_bindgen]
     pub fn withdraw(
         pk: &[u8],
         account: &Account,

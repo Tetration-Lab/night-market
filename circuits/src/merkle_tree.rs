@@ -55,7 +55,7 @@ impl From<Box<dyn ark_std::error::Error>> for MerkleError {
 /// The path contains a sequence of sibling nodes that make up a merkle proof.
 /// Each pair is used to identify whether an incremental merkle root
 /// construction is valid at each intermediate step.
-#[derive(Clone)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Path<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> {
     /// The path represented as a sequence of sibling pairs.
     pub path: [(F, F); N],
@@ -151,6 +151,7 @@ impl<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> Path<F, H, N> {
 /// The Sparse Merkle Tree stores a set of leaves represented in a map and
 /// a set of empty hashes that it uses to represent the sparse areas of the
 /// tree.
+#[derive(Debug, Clone, PartialEq)]
 pub struct SparseMerkleTree<F: PrimeField, H: TwoToOneCRH<Output = F>, const N: usize> {
     /// A map from leaf indices to leaf data stored as field elements.
     pub tree: BTreeMap<u64, F>,

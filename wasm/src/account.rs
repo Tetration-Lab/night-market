@@ -14,6 +14,7 @@ pub struct Account {
     pub nullifier: Fr,
     pub latest_blinding: Fr,
     pub address: Fr,
+    pub index: usize,
 }
 
 impl Account {
@@ -23,7 +24,20 @@ impl Account {
             nullifier: Fr::rand(&mut OsRng),
             latest_blinding: Fr::zero(),
             address: Fr::from_le_bytes_mod_order(address.as_bytes()),
+            index: 0,
         }
+    }
+
+    pub fn from_string(account: &str) -> Self {
+        Self::deserialize(&hex::decode(&account).expect("Invalid account hex")[..])
+            .expect("Unable to deserialize account")
+    }
+
+    pub fn to_string(&self) -> String {
+        let mut bytes = Vec::new();
+        self.serialize(&mut bytes)
+            .expect("Unable to serialize account");
+        hex::encode(bytes)
     }
 }
 

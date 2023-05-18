@@ -1,4 +1,3 @@
-use ark_serialize::CanonicalDeserialize;
 use wasm_bindgen::prelude::*;
 
 use crate::account::Account;
@@ -18,10 +17,9 @@ impl Protocol {
     }
 
     #[wasm_bindgen(constructor)]
-    pub fn from_string(account: String) -> Self {
+    pub fn from_string(account: &str) -> Self {
         Self {
-            account: Account::deserialize(&hex::decode(&account).expect("Invalid account hex")[..])
-                .expect("Unable to deserialize account"),
+            account: Account::from_string(account),
         }
     }
 }

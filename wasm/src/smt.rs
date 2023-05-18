@@ -11,7 +11,8 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub struct SparseMerkleTree {
     pub latest_index: usize,
-    tree: SMT<Fr, MiMCNonFeistelCRH<Fr, MiMCParam>, { TREE_DEPTH }>,
+    #[wasm_bindgen(skip)]
+    pub tree: SMT<Fr, MiMCNonFeistelCRH<Fr, MiMCParam>, { TREE_DEPTH }>,
     hasher: MiMC<Fr, MiMCParam>,
 }
 

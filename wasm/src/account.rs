@@ -4,27 +4,65 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Serializatio
 use ark_std::{UniformRand, Zero};
 use circuits::N_ASSETS;
 use rand::rngs::OsRng;
+use wasm_bindgen::prelude::*;
+
+use crate::{protocol::AssetDiff, utils::serialize_to_hex};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Asset(pub [u128; N_ASSETS]);
 
+#[wasm_bindgen]
 #[derive(CanonicalSerialize, CanonicalDeserialize, Debug, Clone, Copy, PartialEq)]
 pub struct Account {
+    #[wasm_bindgen(skip)]
     pub balance: Asset,
+    #[wasm_bindgen(skip)]
     pub nullifier: Fr,
+    #[wasm_bindgen(skip)]
     pub latest_blinding: Fr,
+    #[wasm_bindgen(skip)]
     pub address: Fr,
-    pub index: usize,
+    pub index: Option<usize>,
+}
+
+#[wasm_bindgen]
+impl Account {
+    #[wasm_bindgen(js_name = new)]
+    pub fn wasm_new(address: &str) -> Self {
+        Self::new(address)
+    }
+
+    #[wasm_bindgen(js_name = fromString)]
+    pub fn wasm_from_string(account: &str) -> Self {
+        Self::from_string(account)
+    }
+
+    #[wasm_bindgen(js_name = toString)]
+    pub fn wasm_to_string(&self) -> String {
+        self.to_string()
+    }
+
+    #[wasm_bindgen(js_name = updateIndex)]
+    pub fn update_index(&mut self, new_index: Option<usize>) {
+        self.index = new_index;
+    }
+
+    #[wasm_bindgen(js_name = updateIndexFromString)]
+    pub fn update_account_index(account: &str, new_index: usize) -> String {
+        let mut account = Self::from_string(account);
+        account.index = Some(new_index);
+        account.to_string()
+    }
 }
 
 impl Account {
-    pub fn new(address: String) -> Self {
+    pub fn new(address: &str) -> Self {
         Self {
             balance: Asset([0; N_ASSETS]),
             nullifier: Fr::rand(&mut OsRng),
             latest_blinding: Fr::zero(),
             address: Fr::from_le_bytes_mod_order(address.as_bytes()),
-            index: 0,
+            index: None,
         }
     }
 
@@ -34,10 +72,23 @@ impl Account {
     }
 
     pub fn to_string(&self) -> String {
-        let mut bytes = Vec::new();
-        self.serialize(&mut bytes)
-            .expect("Unable to serialize account");
-        hex::encode(bytes)
+        serialize_to_hex(self).expect("Unable to serialize account")
+    }
+
+    pub fn update_balance_deposit(&mut self, deposits: &[AssetDiff]) {
+        for deposit in deposits {
+            self.balance.0[deposit.asset_index] += deposit.amount;
+        }
+    }
+
+    pub fn update_balance_withdraw(&mut self, withdraws: &[AssetDiff]) {
+        for withdraw in withdraws {
+            self.balance.0[withdraw.asset_index] -= withdraw.amount;
+        }
+    }
+
+    pub fn randomize_blinding(&mut self) {
+        self.latest_blinding = Fr::rand(&mut OsRng);
     }
 }
 

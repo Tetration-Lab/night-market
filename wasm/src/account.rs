@@ -67,7 +67,7 @@ impl Account {
     }
 
     pub fn from_string(account: &str) -> Self {
-        Self::deserialize(&hex::decode(&account).expect("Invalid account hex")[..])
+        Self::deserialize(&hex::decode(account).expect("Invalid account hex")[..])
             .expect("Unable to deserialize account")
     }
 
@@ -75,15 +75,12 @@ impl Account {
         serialize_to_hex(self).expect("Unable to serialize account")
     }
 
-    pub fn update_balance_deposit(&mut self, deposits: &[AssetDiff]) {
-        for deposit in deposits {
-            self.balance.0[deposit.asset_index] += deposit.amount;
-        }
-    }
-
-    pub fn update_balance_withdraw(&mut self, withdraws: &[AssetDiff]) {
-        for withdraw in withdraws {
-            self.balance.0[withdraw.asset_index] -= withdraw.amount;
+    pub fn update_balance(&mut self, diffs: &[AssetDiff]) {
+        for diff in diffs {
+            match diff.is_add {
+                true => self.balance.0[diff.asset_index] += diff.amount,
+                false => self.balance.0[diff.asset_index] -= diff.amount,
+            }
         }
     }
 
@@ -96,7 +93,7 @@ impl CanonicalSerialize for Asset {
     fn serialize<W: Write>(&self, mut writer: W) -> Result<(), SerializationError> {
         writer
             .write_all(self.0.map(|x| x.to_le_bytes()).flatten())
-            .map_err(|e| SerializationError::IoError(e))
+            .map_err(SerializationError::IoError)
     }
 
     fn serialized_size(&self) -> usize {

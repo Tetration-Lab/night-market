@@ -15,14 +15,15 @@ use crate::{account::Account, smt::SparseMerkleTree, utils::serialize_to_hex};
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct AssetDiff {
     pub asset_index: usize,
+    pub is_add: bool,
     pub amount: u128,
 }
 
 impl AssetDiff {
-    pub fn balances(deposits: &[Self]) -> [Fr; N_ASSETS] {
+    pub fn balances(diffs: &[Self]) -> [Fr; N_ASSETS] {
         let mut balances = [Fr::zero(); N_ASSETS];
-        for deposit in deposits {
-            balances[deposit.asset_index] = Fr::from(deposit.amount);
+        for diff in diffs {
+            balances[diff.asset_index] = Fr::from(diff.amount);
         }
         balances
     }
@@ -48,7 +49,7 @@ impl Protocol {
 
         // Update account balance and blinding
         let mut new_account = *account;
-        new_account.update_balance_deposit(&deposits);
+        new_account.update_balance(&deposits);
         new_account.randomize_blinding();
         new_account.update_index(Some(tree.latest_index));
 
@@ -57,7 +58,7 @@ impl Protocol {
         let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
 
         // Calculate old note and old note nullifier hash
-        let old_note_balances = account.balance.0.map(|e| Fr::from(e));
+        let old_note_balances = account.balance.0.map(Fr::from);
         let old_note_balance_root = mimc.permute_non_feistel(old_note_balances.to_vec())[0];
         let old_note_identifier =
             mimc.permute_non_feistel(vec![account.address, account.latest_blinding])[0];
@@ -79,7 +80,7 @@ impl Protocol {
 
         // Calculate new note and new note nullifier hash
         let new_note_blinding = new_account.latest_blinding;
-        let new_note_balances = new_account.balance.0.map(|e| Fr::from(e));
+        let new_note_balances = new_account.balance.0.map(Fr::from);
         let new_note_balance_root = mimc.permute_non_feistel(new_note_balances.to_vec())[0];
         let new_note = mimc.permute_non_feistel(vec![
             new_note_balance_root,
@@ -134,13 +135,13 @@ impl Protocol {
     ) -> JsValue {
         let mimc = mimc();
 
-        // Deserialize deposits
+        // Deserialize withdraws
         let withdraws =
-            from_value::<Vec<AssetDiff>>(withdraws).expect("Failed to deserialize deposits");
+            from_value::<Vec<AssetDiff>>(withdraws).expect("Failed to deserialize withdraws");
 
         // Update account balance and blinding
         let mut new_account = *account;
-        new_account.update_balance_withdraw(&withdraws);
+        new_account.update_balance(&withdraws);
         new_account.randomize_blinding();
         new_account.update_index(Some(tree.latest_index));
 
@@ -149,7 +150,7 @@ impl Protocol {
         let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
 
         // Calculate old note and old note nullifier hash
-        let old_note_balances = account.balance.0.map(|e| Fr::from(e));
+        let old_note_balances = account.balance.0.map(Fr::from);
         let old_note_balance_root = mimc.permute_non_feistel(old_note_balances.to_vec())[0];
         let old_note_identifier =
             mimc.permute_non_feistel(vec![account.address, account.latest_blinding])[0];
@@ -171,7 +172,7 @@ impl Protocol {
 
         // Calculate new note and new note nullifier hash
         let new_note_blinding = new_account.latest_blinding;
-        let new_note_balances = new_account.balance.0.map(|e| Fr::from(e));
+        let new_note_balances = new_account.balance.0.map(Fr::from);
         let new_note_balance_root = mimc.permute_non_feistel(new_note_balances.to_vec())[0];
         let new_note = mimc.permute_non_feistel(vec![
             new_note_balance_root,

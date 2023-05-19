@@ -3,10 +3,12 @@ use ark_crypto_primitives::SNARK;
 use ark_groth16::{Groth16, ProvingKey};
 use ark_serialize::CanonicalDeserialize;
 use ark_std::Zero;
+use arkworks_mimc::utils::to_field_elements;
 use circuits::{merkle_tree::Path, utils::mimc, MainCircuitBn254, N_ASSETS, TREE_DEPTH};
+use osmosis_std::types::osmosis::gamm::v1beta1::MsgSwapExactAmountIn;
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, to_vec};
 use serde_wasm_bindgen::{from_value, to_value};
 use wasm_bindgen::prelude::*;
 
@@ -35,26 +37,26 @@ pub struct Protocol;
 #[wasm_bindgen]
 impl Protocol {
     #[wasm_bindgen]
-    pub fn deposit(
+    pub fn deposit_withdraw(
         pk: &[u8],
         account: &Account,
         tree: &SparseMerkleTree,
-        deposits: JsValue,
+        diffs: JsValue,
     ) -> JsValue {
         let mimc = mimc();
 
-        // Deserialize deposits
-        let deposits =
-            from_value::<Vec<AssetDiff>>(deposits).expect("Failed to deserialize deposits");
+        // Deserialize diffs
+        let diffs =
+            from_value::<Vec<AssetDiff>>(diffs).expect("Failed to deserialize balance diffs");
 
         // Update account balance and blinding
         let mut new_account = *account;
-        new_account.update_balance(&deposits);
+        new_account.update_balance(&diffs);
         new_account.randomize_blinding();
         new_account.update_index(Some(tree.latest_index));
 
         // Calculate diff balances and diff balance root
-        let diff_balances = AssetDiff::balances(&deposits);
+        let diff_balances = AssetDiff::balances(&diffs);
         let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
 
         // Calculate old note and old note nullifier hash
@@ -91,7 +93,8 @@ impl Protocol {
         // Generate proof
         let proof = {
             let proof = Groth16::<Bn254>::prove(
-                &ProvingKey::deserialize_uncompressed(pk).expect(""),
+                &ProvingKey::deserialize_uncompressed(pk)
+                    .expect("Failed to deserialize proving key"),
                 MainCircuitBn254::<{ N_ASSETS }, { TREE_DEPTH }> {
                     address: account.address,
                     nullifier: account.nullifier,
@@ -127,26 +130,44 @@ impl Protocol {
     }
 
     #[wasm_bindgen]
-    pub fn withdraw(
+    pub fn swap(
         pk: &[u8],
         account: &Account,
         tree: &SparseMerkleTree,
-        withdraws: JsValue,
+        diffs: JsValue,
+        swap_argument: JsValue,
+        timeout: Option<u64>,
     ) -> JsValue {
         let mimc = mimc();
 
-        // Deserialize withdraws
-        let withdraws =
-            from_value::<Vec<AssetDiff>>(withdraws).expect("Failed to deserialize withdraws");
+        let mut swap_argument: MsgSwapExactAmountIn =
+            from_value(swap_argument).expect("Failed to deserialize swap args");
+        // Normalize swap argument and then calculate aux
+        swap_argument.sender = String::new();
+        let aux = mimc.permute_non_feistel(to_field_elements::<Fr>(
+            &to_vec(&swap_argument)
+                .expect("Failed to serialize swap args")
+                .into_iter()
+                .chain(
+                    to_vec(&timeout)
+                        .expect("Failed to serialize timeout")
+                        .into_iter(),
+                )
+                .collect::<Vec<_>>(),
+        ))[0];
+
+        // Deserialize diffs
+        let diffs =
+            from_value::<Vec<AssetDiff>>(diffs).expect("Failed to deserialize balance diffs");
 
         // Update account balance and blinding
         let mut new_account = *account;
-        new_account.update_balance(&withdraws);
+        new_account.update_balance(&diffs);
         new_account.randomize_blinding();
         new_account.update_index(Some(tree.latest_index));
 
         // Calculate diff balances and diff balance root
-        let diff_balances = AssetDiff::balances(&withdraws);
+        let diff_balances = AssetDiff::balances(&diffs);
         let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
 
         // Calculate old note and old note nullifier hash
@@ -167,7 +188,7 @@ impl Protocol {
                 mimc.permute_non_feistel(vec![old_note, account.nullifier])[0],
                 tree.tree.root(),
             ),
-            None => panic!("Account index is not set"),
+            None => (Path::empty(), Fr::zero(), Fr::zero()),
         };
 
         // Calculate new note and new note nullifier hash
@@ -183,11 +204,12 @@ impl Protocol {
         // Generate proof
         let proof = {
             let proof = Groth16::<Bn254>::prove(
-                &ProvingKey::deserialize_uncompressed(pk).expect(""),
+                &ProvingKey::deserialize_uncompressed(pk)
+                    .expect("Failed to deserialize proving key"),
                 MainCircuitBn254::<{ N_ASSETS }, { TREE_DEPTH }> {
                     address: account.address,
                     nullifier: account.nullifier,
-                    aux: Fr::zero(),
+                    aux,
                     utxo_root: root,
                     diff_balance_root,
                     diff_balances,

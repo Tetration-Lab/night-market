@@ -19,6 +19,8 @@ arkworks-mimc = { version = "0.3.0", default-features = false, features = ["r1cs
 
 circuits = { path = "../circuits" }
 
+osmosis-std = "0.15.2"
+
 rand = "0.8.5"
 getrandom = { version = "0.2.9", features = ["js"] }
 

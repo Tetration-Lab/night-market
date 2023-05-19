@@ -134,7 +134,7 @@ pub fn execute(
             ]))
         }
         ExecuteMsg::Swap {
-            swap_argument,
+            mut swap_argument,
             root,
             nullifier_hash,
             identifier,
@@ -143,6 +143,9 @@ pub fn execute(
             timeout,
         } => {
             let mimc = mimc();
+
+            // Normalize swap argument and then calculate aux
+            swap_argument.sender = String::new();
             let aux = mimc.permute_non_feistel(to_field_elements::<Fr>(
                 &to_vec(&swap_argument)?
                     .into_iter()
@@ -232,9 +235,7 @@ pub fn execute(
                 .add_message(
                     osmosis_std::types::osmosis::gamm::v1beta1::MsgSwapExactAmountIn {
                         sender: env.contract.address.to_string(),
-                        routes: swap_argument.routes,
-                        token_in: swap_argument.token_in,
-                        token_out_min_amount: swap_argument.token_out_min_amount,
+                        ..swap_argument
                     },
                 )
                 .add_attributes([

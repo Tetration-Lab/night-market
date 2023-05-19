@@ -38,6 +38,7 @@ pub enum ExecuteMsg {
         new_note: String,
         proof: String,
     },
+    TransferExcess {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

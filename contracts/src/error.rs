@@ -42,6 +42,9 @@ pub enum ContractError {
 
     #[error("Invalid UTXO Tree Root")]
     InvalidRoot,
+
+    #[error("Only callable by this contract")]
+    NotContract,
 }
 
 impl From<SerializationError> for ContractError {

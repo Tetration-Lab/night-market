@@ -21,8 +21,8 @@ use ark_std::Zero;
 use arkworks_mimc::utils::to_field_elements;
 use circuits::{utils::mimc, TREE_DEPTH};
 use cosmwasm_std::{
-    entry_point, to_binary, to_vec, Deps, DepsMut, Env, MessageInfo, Order, QueryResponse,
-    Response, Uint128,
+    entry_point, to_binary, to_vec, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order,
+    QueryResponse, Response, Uint128, WasmMsg,
 };
 use cw_merkle_tree::MerkleTree;
 use cw_storage_plus::Bound;
@@ -30,7 +30,7 @@ use error::ContractError;
 use hasher::MiMCHasher;
 use msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use serde_json::json;
-use state::{ADMIN, ASSETS, MAIN_CIRCUIT_VK, NULLIFIER, TREE};
+use state::{ADMIN, ASSETS, LATEST_SWAP, MAIN_CIRCUIT_VK, NULLIFIER, TREE};
 
 #[entry_point]
 pub fn instantiate(
@@ -231,6 +231,17 @@ pub fn execute(
 
             is_valid.then_some(()).ok_or(ContractError::InvalidProof)?;
 
+            // Save latest swap for excess coin transfer
+            LATEST_SWAP.save(
+                deps.storage,
+                &(
+                    deps.querier
+                        .query_balance(&env.contract.address, out_denom)?,
+                    out_amount,
+                    info.sender,
+                ),
+            )?;
+
             Ok(Response::new()
                 .add_message(
                     osmosis_std::types::osmosis::gamm::v1beta1::MsgSwapExactAmountIn {
@@ -238,6 +249,11 @@ pub fn execute(
                         ..swap_argument
                     },
                 )
+                .add_message(WasmMsg::Execute {
+                    contract_addr: env.contract.address.to_string(),
+                    msg: to_binary(&ExecuteMsg::TransferExcess {})?,
+                    funds: vec![],
+                })
                 .add_attributes([
                     ("index", &index.to_string()),
                     ("new_root", &new_root),
@@ -312,6 +328,29 @@ pub fn execute(
                 ("new_root", &new_root),
                 ("leaf", &new_note),
             ]))
+        }
+        ExecuteMsg::TransferExcess {} => {
+            (info.sender == env.contract.address)
+                .then_some(())
+                .ok_or(ContractError::NotContract)?;
+
+            let (balance, amount, recipient) = LATEST_SWAP.load(deps.storage)?;
+            let current_balance = deps
+                .querier
+                .query_balance(&env.contract.address, &balance.denom)?;
+            LATEST_SWAP.remove(deps.storage);
+
+            let min_balance = balance.amount + amount;
+            match current_balance.amount > min_balance {
+                true => Ok(Response::new().add_message(BankMsg::Send {
+                    to_address: recipient.to_string(),
+                    amount: vec![Coin {
+                        amount: current_balance.amount - min_balance,
+                        denom: balance.denom,
+                    }],
+                })),
+                false => Ok(Response::new()),
+            }
         }
     }
 }

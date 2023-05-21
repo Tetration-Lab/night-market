@@ -34,10 +34,10 @@ lazy_static! {
         .expect("setup failed");
 }
 
-fn serialize_to_hex<T: CanonicalSerialize>(value: &T) -> String {
+fn serialize_to_base64<T: CanonicalSerialize>(value: &T) -> String {
     let mut bytes = vec![];
     value.serialize(&mut bytes).expect("failed to serialize");
-    hex::encode(bytes)
+    base64::encode(bytes)
 }
 
 fn init() -> Result<

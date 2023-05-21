@@ -1,8 +1,8 @@
 use ark_relations::r1cs::SynthesisError;
 use ark_serialize::SerializationError;
+use base64::DecodeError;
 use cosmwasm_std::StdError;
 use cw_merkle_tree::MerkleTreeError;
-use hex::FromHexError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -13,11 +13,11 @@ pub enum ContractError {
     #[error("Merkle Tree: {0}")]
     Merkle(#[from] MerkleTreeError),
 
+    #[error("Decode Base64: {0}")]
+    Decode(#[from] DecodeError),
+
     #[error("Ark Serialization: {0}")]
     Serialization(String),
-
-    #[error("Hex: {0}")]
-    FromHex(#[from] FromHexError),
 
     #[error("Synthesis: {0}")]
     Synthesis(String),

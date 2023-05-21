@@ -30,7 +30,7 @@ impl SparseMerkleTree {
 
     #[wasm_bindgen]
     pub fn root(&self) -> String {
-        hex::encode(self.tree.root().into_repr().to_bytes_le())
+        base64::encode(self.tree.root().into_repr().to_bytes_le())
     }
 
     #[wasm_bindgen]
@@ -43,7 +43,7 @@ impl SparseMerkleTree {
                 &BTreeMap::from_iter(leaf_list.into_iter().enumerate().map(|(i, e)| {
                     (
                         (self.latest_index + i) as u32,
-                        Fr::from_le_bytes_mod_order(&hex::decode(e).unwrap()),
+                        Fr::from_le_bytes_mod_order(&base64::decode(e).unwrap()),
                     )
                 })),
                 &self.hasher,

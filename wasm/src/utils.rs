@@ -8,5 +8,5 @@ pub fn serialize<T: CanonicalSerialize>(value: &T) -> Result<Vec<u8>, Serializat
 
 pub fn serialize_to_hex<T: CanonicalSerialize>(value: &T) -> Result<String, SerializationError> {
     let buf = serialize(value)?;
-    Ok(hex::encode(buf))
+    Ok(base64::encode(buf))
 }

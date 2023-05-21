@@ -11,10 +11,10 @@ impl<'a> Hasher<String> for MiMCHasher<'a> {
     fn hash_two(&self, left: &String, right: &String) -> Result<String, HasherError> {
         let hashed = <MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS> as TwoToOneCRH>::evaluate(
             &self.0,
-            &hex::decode(left).map_err(|_| HasherError::custom("left hashing error"))?,
-            &hex::decode(right).map_err(|_| HasherError::custom("left hashing error"))?,
+            &base64::decode(left).map_err(|_| HasherError::custom("left hash decode error"))?,
+            &base64::decode(right).map_err(|_| HasherError::custom("right hash decode error"))?,
         )
         .map_err(|e| HasherError::Custom(e.to_string()))?;
-        Ok(hex::encode(hashed.into_repr().to_bytes_le()))
+        Ok(base64::encode(hashed.into_repr().to_bytes_le()))
     }
 }

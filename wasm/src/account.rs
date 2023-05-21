@@ -67,7 +67,7 @@ impl Account {
     }
 
     pub fn from_string(account: &str) -> Self {
-        Self::deserialize(&hex::decode(account).expect("Invalid account hex")[..])
+        Self::deserialize(&base64::decode(account).expect("Invalid account hex")[..])
             .expect("Unable to deserialize account")
     }
 

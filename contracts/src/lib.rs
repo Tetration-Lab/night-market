@@ -47,7 +47,7 @@ pub fn instantiate(
     TREE.init(
         deps.storage,
         TREE_DEPTH as u8,
-        hex::encode(Fr::zero().into_repr().to_bytes_le()),
+        base64::encode(Fr::zero().into_repr().to_bytes_le()),
         &MiMCHasher(&mimc),
     )?;
 
@@ -74,12 +74,12 @@ pub fn execute(
             let vk = VerifyingKey::<Bn254>::deserialize_uncompressed(
                 &MAIN_CIRCUIT_VK.load(deps.storage)?[..],
             )?;
-            let proof = Proof::deserialize(&hex::decode(&proof)?[..])?;
-            let nullifier_hash = Fr::from_le_bytes_mod_order(&hex::decode(&nullifier_hash)?);
+            let proof = Proof::deserialize(&base64::decode(&proof)?[..])?;
+            let nullifier_hash = Fr::from_le_bytes_mod_order(&base64::decode(&nullifier_hash)?);
 
-            let tree_root = Fr::from_le_bytes_mod_order(&hex::decode(&root)?);
+            let tree_root = Fr::from_le_bytes_mod_order(&base64::decode(&root)?);
             if tree_root != Fr::zero() {
-                let tree_root_normalized = hex::encode(&tree_root.into_repr().to_bytes_le());
+                let tree_root_normalized = base64::encode(&tree_root.into_repr().to_bytes_le());
                 TREE.is_valid_root(deps.storage, &tree_root_normalized)?
                     .then_some(())
                     .ok_or(ContractError::InvalidRoot)?;
@@ -116,8 +116,8 @@ pub fn execute(
                     tree_root,
                     diff_balance_root,
                     nullifier_hash,
-                    Fr::from_le_bytes_mod_order(&hex::decode(&identifier)?),
-                    Fr::from_le_bytes_mod_order(&hex::decode(&new_note)?),
+                    Fr::from_le_bytes_mod_order(&base64::decode(&identifier)?),
+                    Fr::from_le_bytes_mod_order(&base64::decode(&new_note)?),
                 ],
                 &proof,
             )?;
@@ -197,8 +197,8 @@ pub fn execute(
             let vk = VerifyingKey::<Bn254>::deserialize_uncompressed(
                 &MAIN_CIRCUIT_VK.load(deps.storage)?[..],
             )?;
-            let proof = Proof::deserialize(&hex::decode(&proof)?[..])?;
-            let nullifier_hash = Fr::from_le_bytes_mod_order(&hex::decode(&nullifier_hash)?);
+            let proof = Proof::deserialize(&base64::decode(&proof)?[..])?;
+            let nullifier_hash = Fr::from_le_bytes_mod_order(&base64::decode(&nullifier_hash)?);
             let nullifier_normalized = nullifier_hash.into_repr().to_bytes_le();
             NULLIFIER
                 .has(deps.storage, &nullifier_normalized)
@@ -207,8 +207,8 @@ pub fn execute(
                 .ok_or(ContractError::UsedNullifier)?;
             NULLIFIER.save(deps.storage, &nullifier_normalized, &())?;
 
-            let tree_root = Fr::from_le_bytes_mod_order(&hex::decode(&root)?);
-            let tree_root_normalized = hex::encode(&tree_root.into_repr().to_bytes_le());
+            let tree_root = Fr::from_le_bytes_mod_order(&base64::decode(&root)?);
+            let tree_root_normalized = base64::encode(&tree_root.into_repr().to_bytes_le());
             TREE.is_valid_root(deps.storage, &tree_root_normalized)?
                 .then_some(())
                 .ok_or(ContractError::InvalidRoot)?;
@@ -220,8 +220,8 @@ pub fn execute(
                     tree_root,
                     diff_balance_root,
                     nullifier_hash,
-                    Fr::from_le_bytes_mod_order(&hex::decode(&identifier)?),
-                    Fr::from_le_bytes_mod_order(&hex::decode(&new_note)?),
+                    Fr::from_le_bytes_mod_order(&base64::decode(&identifier)?),
+                    Fr::from_le_bytes_mod_order(&base64::decode(&new_note)?),
                 ],
                 &proof,
             )?;
@@ -273,8 +273,8 @@ pub fn execute(
             let vk = VerifyingKey::<Bn254>::deserialize_uncompressed(
                 &MAIN_CIRCUIT_VK.load(deps.storage)?[..],
             )?;
-            let proof = Proof::deserialize(&hex::decode(&proof)?[..])?;
-            let nullifier_hash = Fr::from_le_bytes_mod_order(&hex::decode(&nullifier_hash)?);
+            let proof = Proof::deserialize(&base64::decode(&proof)?[..])?;
+            let nullifier_hash = Fr::from_le_bytes_mod_order(&base64::decode(&nullifier_hash)?);
 
             let nullifier_normalized = nullifier_hash.into_repr().to_bytes_le();
             NULLIFIER
@@ -284,8 +284,8 @@ pub fn execute(
                 .ok_or(ContractError::UsedNullifier)?;
             NULLIFIER.save(deps.storage, &nullifier_normalized, &())?;
 
-            let tree_root = Fr::from_le_bytes_mod_order(&hex::decode(&root)?);
-            let tree_root_normalized = hex::encode(&tree_root.into_repr().to_bytes_le());
+            let tree_root = Fr::from_le_bytes_mod_order(&base64::decode(&root)?);
+            let tree_root_normalized = base64::encode(&tree_root.into_repr().to_bytes_le());
             TREE.is_valid_root(deps.storage, &tree_root_normalized)?
                 .then_some(())
                 .ok_or(ContractError::InvalidRoot)?;
@@ -301,7 +301,7 @@ pub fn execute(
                     })
                     .collect::<Vec<_>>(),
             )[0];
-            let blinding = Fr::from_le_bytes_mod_order(&hex::decode(&blinding)?);
+            let blinding = Fr::from_le_bytes_mod_order(&base64::decode(&blinding)?);
             let address = Fr::from_le_bytes_mod_order(info.sender.as_bytes());
             let identifier = mimc.permute_non_feistel(vec![address, blinding])[0];
 
@@ -313,7 +313,7 @@ pub fn execute(
                     diff_balance_root,
                     nullifier_hash,
                     identifier,
-                    Fr::from_le_bytes_mod_order(&hex::decode(&new_note)?),
+                    Fr::from_le_bytes_mod_order(&base64::decode(&new_note)?),
                 ],
                 &proof,
             )?;

@@ -11,7 +11,7 @@ use cw_multi_test::Executor;
 
 use crate::{
     msg::{ExecuteMsg, QueryMsg},
-    test::{init, serialize_to_hex, Circuit, KEY, USER_1},
+    test::{init, serialize_to_base64, Circuit, KEY, USER_1},
 };
 
 #[test]
@@ -61,8 +61,8 @@ fn deposit_first_time() -> Result<(), Box<dyn Error>> {
             root: String::new(),
             nullifier_hash: String::new(),
             identifier: String::new(),
-            new_note: serialize_to_hex(&new_note),
-            proof: serialize_to_hex(&proof),
+            new_note: serialize_to_base64(&new_note),
+            proof: serialize_to_base64(&proof),
         },
         &[Coin::new(uosmo_amount, "uosmo")],
     )?;
@@ -73,12 +73,12 @@ fn deposit_first_time() -> Result<(), Box<dyn Error>> {
     assert_eq!(attributes[1].value, "0", "Invalid leaf index");
     assert_eq!(
         attributes[2].value,
-        serialize_to_hex(&tree.root()),
+        serialize_to_base64(&tree.root()),
         "Invalid utxo root"
     );
     assert_eq!(
         attributes[3].value,
-        serialize_to_hex(&new_note),
+        serialize_to_base64(&new_note),
         "Invalid note"
     );
 
@@ -113,8 +113,8 @@ fn deposit_subsequent_diff_asset() -> Result<(), Box<dyn Error>> {
             root: String::new(),
             nullifier_hash: String::new(),
             identifier: String::new(),
-            new_note: serialize_to_hex(&note),
-            proof: serialize_to_hex(&Groth16::prove(
+            new_note: serialize_to_base64(&note),
+            proof: serialize_to_base64(&Groth16::prove(
                 &KEY.0,
                 Circuit {
                     address,
@@ -160,11 +160,11 @@ fn deposit_subsequent_diff_asset() -> Result<(), Box<dyn Error>> {
         USER_1.clone(),
         addr.clone(),
         &ExecuteMsg::Deposit {
-            root: serialize_to_hex(&tree.root()),
-            nullifier_hash: serialize_to_hex(&nullifier_hash),
-            identifier: serialize_to_hex(&identifier),
-            new_note: serialize_to_hex(&new_note),
-            proof: serialize_to_hex(&Groth16::prove(
+            root: serialize_to_base64(&tree.root()),
+            nullifier_hash: serialize_to_base64(&nullifier_hash),
+            identifier: serialize_to_base64(&identifier),
+            new_note: serialize_to_base64(&new_note),
+            proof: serialize_to_base64(&Groth16::prove(
                 &KEY.0,
                 Circuit {
                     address,
@@ -195,12 +195,12 @@ fn deposit_subsequent_diff_asset() -> Result<(), Box<dyn Error>> {
     assert_eq!(attributes[1].value, "1", "Invalid leaf index");
     assert_eq!(
         attributes[2].value,
-        serialize_to_hex(&tree.root()),
+        serialize_to_base64(&tree.root()),
         "Invalid utxo root"
     );
     assert_eq!(
         attributes[3].value,
-        serialize_to_hex(&new_note),
+        serialize_to_base64(&new_note),
         "Invalid note"
     );
 
@@ -235,8 +235,8 @@ fn deposit_subsequent_same_asset() -> Result<(), Box<dyn Error>> {
             root: String::new(),
             nullifier_hash: String::new(),
             identifier: String::new(),
-            new_note: serialize_to_hex(&note),
-            proof: serialize_to_hex(&Groth16::prove(
+            new_note: serialize_to_base64(&note),
+            proof: serialize_to_base64(&Groth16::prove(
                 &KEY.0,
                 Circuit {
                     address,
@@ -282,11 +282,11 @@ fn deposit_subsequent_same_asset() -> Result<(), Box<dyn Error>> {
         USER_1.clone(),
         addr.clone(),
         &ExecuteMsg::Deposit {
-            root: serialize_to_hex(&tree.root()),
-            nullifier_hash: serialize_to_hex(&nullifier_hash),
-            identifier: serialize_to_hex(&identifier),
-            new_note: serialize_to_hex(&new_note),
-            proof: serialize_to_hex(&Groth16::prove(
+            root: serialize_to_base64(&tree.root()),
+            nullifier_hash: serialize_to_base64(&nullifier_hash),
+            identifier: serialize_to_base64(&identifier),
+            new_note: serialize_to_base64(&new_note),
+            proof: serialize_to_base64(&Groth16::prove(
                 &KEY.0,
                 Circuit {
                     address,
@@ -317,12 +317,12 @@ fn deposit_subsequent_same_asset() -> Result<(), Box<dyn Error>> {
     assert_eq!(attributes[1].value, "1", "Invalid leaf index");
     assert_eq!(
         attributes[2].value,
-        serialize_to_hex(&tree.root()),
+        serialize_to_base64(&tree.root()),
         "Invalid utxo root"
     );
     assert_eq!(
         attributes[3].value,
-        serialize_to_hex(&new_note),
+        serialize_to_base64(&new_note),
         "Invalid note"
     );
 

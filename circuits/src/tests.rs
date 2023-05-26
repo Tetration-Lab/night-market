@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, error::Error};
+use std::{collections::BTreeMap, error::Error, println};
 
 use ark_bn254::Fr;
 use ark_ff::PrimeField;
@@ -6,28 +6,30 @@ use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystem};
 use ark_std::{test_rng, UniformRand, Zero};
 
 use crate::{
-    utils::mimc, MainCircuitBn254, MigrationCircuitBn254, SplittedSettleCircuitBn254,
-    SplittedSpendCircuitBn254, N_ASSETS, TREE_DEPTH,
+    poseidon::PoseidonHash, utils::poseidon_bn254, MainCircuitBn254, MigrationCircuitBn254,
+    SplittedSettleCircuitBn254, SplittedSpendCircuitBn254, N_ASSETS, TREE_DEPTH,
 };
 
-type TestCircuit2Asset = MainCircuitBn254<3, 10>;
-type TestCircuitProdAsset = MainCircuitBn254<{ N_ASSETS }, { TREE_DEPTH }>;
+type TestMain = MainCircuitBn254<3, 10>;
+type ProdMain = MainCircuitBn254<{ N_ASSETS }, { TREE_DEPTH }>;
 type TestMigration = MigrationCircuitBn254<3, 10, 25>;
-type TestSplittedSpendProd = SplittedSpendCircuitBn254<{ N_ASSETS }, { TREE_DEPTH }>;
-type TestSplittedSettleProd = SplittedSettleCircuitBn254<{ N_ASSETS }, { TREE_DEPTH }>;
+type ProdSplittedSpend = SplittedSpendCircuitBn254<{ N_ASSETS }, { TREE_DEPTH }>;
+type ProdSplittedSettle = SplittedSettleCircuitBn254<{ N_ASSETS }, { TREE_DEPTH }>;
 
 #[test]
 pub fn num_constraints() -> Result<(), Box<dyn Error>> {
+    let poseidon = poseidon_bn254();
+
     let cs = ConstraintSystem::new_ref();
-    TestCircuit2Asset::empty_without_tree(&mimc()).generate_constraints(cs.clone())?;
+    TestMain::empty_without_tree(&poseidon).generate_constraints(cs.clone())?;
 
     println!(
-        "2 Asset Constraints {}",
+        "3 Asset Constraints {}",
         cs.num_constraints() + cs.num_instance_variables()
     );
 
     let cs = ConstraintSystem::new_ref();
-    TestCircuitProdAsset::empty_without_tree(&mimc()).generate_constraints(cs.clone())?;
+    ProdMain::empty_without_tree(&poseidon).generate_constraints(cs.clone())?;
 
     println!(
         "Prod Constraints {}",
@@ -35,7 +37,7 @@ pub fn num_constraints() -> Result<(), Box<dyn Error>> {
     );
 
     let cs = ConstraintSystem::new_ref();
-    TestMigration::empty_without_tree(&mimc()).generate_constraints(cs.clone())?;
+    TestMigration::empty_without_tree(&poseidon).generate_constraints(cs.clone())?;
 
     println!(
         "Migration Constraints {}",
@@ -43,7 +45,7 @@ pub fn num_constraints() -> Result<(), Box<dyn Error>> {
     );
 
     let cs = ConstraintSystem::new_ref();
-    TestSplittedSpendProd::empty_without_tree(&mimc()).generate_constraints(cs.clone())?;
+    ProdSplittedSpend::empty_without_tree(&poseidon).generate_constraints(cs.clone())?;
 
     println!(
         "Splitted Spend Constraints {}",
@@ -51,7 +53,7 @@ pub fn num_constraints() -> Result<(), Box<dyn Error>> {
     );
 
     let cs = ConstraintSystem::new_ref();
-    TestSplittedSettleProd::empty_without_tree(&mimc()).generate_constraints(cs.clone())?;
+    ProdSplittedSettle::empty_without_tree(&poseidon).generate_constraints(cs.clone())?;
 
     println!(
         "Splitted Settle Constraints {}",
@@ -64,8 +66,8 @@ pub fn num_constraints() -> Result<(), Box<dyn Error>> {
 #[test]
 pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
     let rng = &mut test_rng();
-    let mimc = mimc();
-    let (_, tree) = TestCircuit2Asset::empty(&mimc);
+    let hash = poseidon_bn254();
+    let (_, tree) = TestMain::empty(&hash);
     let cs = ConstraintSystem::<Fr>::new_ref();
 
     let address_str = "osmo1zlymlax05tg9km9jyw496jx60v86m4548xw2xu";
@@ -73,17 +75,20 @@ pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
     let nullifier = Fr::rand(rng);
 
     let diff_balances = [Fr::from(100), Fr::from(200), Fr::zero()];
-    let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
+    let diff_balance_root = PoseidonHash::crh(&hash, &diff_balances)?;
 
     let new_note_blinding = Fr::rand(rng);
     let new_note_balances = diff_balances;
-    let new_note = mimc.permute_non_feistel(vec![
-        diff_balance_root,
-        mimc.permute_non_feistel(vec![address, new_note_blinding])[0],
-        nullifier,
-    ])[0];
+    let new_note = PoseidonHash::crh(
+        &hash,
+        &[
+            diff_balance_root,
+            PoseidonHash::tto_crh(&hash, address, new_note_blinding)?,
+            nullifier,
+        ],
+    )?;
 
-    let circuit = TestCircuit2Asset {
+    let circuit = TestMain {
         address,
         nullifier,
         aux: Fr::zero(),
@@ -97,7 +102,7 @@ pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
         new_note,
         new_note_blinding,
         new_note_balances,
-        parameters: mimc,
+        parameters: hash,
         _hg: std::marker::PhantomData,
     };
     circuit.generate_constraints(cs.clone())?;
@@ -110,8 +115,8 @@ pub fn deposit_first_time() -> Result<(), Box<dyn Error>> {
 #[test]
 pub fn deposit_subsequent() -> Result<(), Box<dyn Error>> {
     let rng = &mut test_rng();
-    let mimc = mimc();
-    let (_, mut tree) = TestCircuit2Asset::empty(&mimc);
+    let hash = poseidon_bn254();
+    let (_, mut tree) = TestMain::empty(&hash);
     let cs = ConstraintSystem::<Fr>::new_ref();
 
     let address_str = "osmo1zlymlax05tg9km9jyw496jx60v86m4548xw2xu";
@@ -120,27 +125,32 @@ pub fn deposit_subsequent() -> Result<(), Box<dyn Error>> {
 
     let old_note_blinding = Fr::rand(rng);
     let old_note_balances = [Fr::from(100), Fr::from(200), Fr::zero()];
-    let old_note_balance_root = mimc.permute_non_feistel(old_note_balances.to_vec())[0];
-    let old_note_identifier = mimc.permute_non_feistel(vec![address, old_note_blinding])[0];
-    let old_note =
-        mimc.permute_non_feistel(vec![old_note_balance_root, old_note_identifier, nullifier])[0];
-    let old_note_nullifier_hash = mimc.permute_non_feistel(vec![old_note, nullifier])[0];
+    let old_note_balance_root = PoseidonHash::crh(&hash, &old_note_balances)?;
+    let old_note_identifier = PoseidonHash::tto_crh(&hash, address, old_note_blinding)?;
+    let old_note = PoseidonHash::crh(
+        &hash,
+        &[old_note_balance_root, old_note_identifier, nullifier],
+    )?;
+    let old_note_nullifier_hash = PoseidonHash::tto_crh(&hash, old_note, nullifier)?;
 
-    tree.insert_batch(&BTreeMap::from([(0, old_note)]), &mimc)?;
+    tree.insert_batch(&BTreeMap::from([(0, old_note)]), &hash)?;
 
     let diff_balances = [Fr::from(100), Fr::from(0), Fr::zero()];
-    let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
+    let diff_balance_root = PoseidonHash::crh(&hash, &diff_balances)?;
 
     let new_note_blinding = Fr::rand(rng);
     let new_note_balances = [Fr::from(200), Fr::from(200), Fr::zero()];
-    let new_note_balance_root = mimc.permute_non_feistel(new_note_balances.to_vec())[0];
-    let new_note = mimc.permute_non_feistel(vec![
-        new_note_balance_root,
-        mimc.permute_non_feistel(vec![address, new_note_blinding])[0],
-        nullifier,
-    ])[0];
+    let new_note_balance_root = PoseidonHash::crh(&hash, &new_note_balances)?;
+    let new_note = PoseidonHash::crh(
+        &hash,
+        &[
+            new_note_balance_root,
+            PoseidonHash::tto_crh(&hash, address, new_note_blinding)?,
+            nullifier,
+        ],
+    )?;
 
-    let circuit = TestCircuit2Asset {
+    let circuit = TestMain {
         address,
         nullifier,
         aux: Fr::zero(),
@@ -154,7 +164,7 @@ pub fn deposit_subsequent() -> Result<(), Box<dyn Error>> {
         new_note,
         new_note_blinding,
         new_note_balances,
-        parameters: mimc,
+        parameters: hash,
         _hg: std::marker::PhantomData,
     };
     circuit.generate_constraints(cs.clone())?;
@@ -167,8 +177,8 @@ pub fn deposit_subsequent() -> Result<(), Box<dyn Error>> {
 #[test]
 pub fn diff_swap_plus_fee() -> Result<(), Box<dyn Error>> {
     let rng = &mut test_rng();
-    let mimc = mimc();
-    let (_, mut tree) = TestCircuit2Asset::empty(&mimc);
+    let hash = poseidon_bn254();
+    let (_, mut tree) = TestMain::empty(&hash);
     let cs = ConstraintSystem::<Fr>::new_ref();
 
     let address_str = "osmo1zlymlax05tg9km9jyw496jx60v86m4548xw2xu";
@@ -177,28 +187,33 @@ pub fn diff_swap_plus_fee() -> Result<(), Box<dyn Error>> {
 
     let old_note_blinding = Fr::rand(rng);
     let old_note_balances = [Fr::from(300), Fr::from(200), Fr::zero()];
-    let old_note_balance_root = mimc.permute_non_feistel(old_note_balances.to_vec())[0];
-    let old_note_identifier = mimc.permute_non_feistel(vec![address, old_note_blinding])[0];
-    let old_note =
-        mimc.permute_non_feistel(vec![old_note_balance_root, old_note_identifier, nullifier])[0];
-    let old_note_nullifier_hash = mimc.permute_non_feistel(vec![old_note, nullifier])[0];
+    let old_note_balance_root = PoseidonHash::crh(&hash, &old_note_balances)?;
+    let old_note_identifier = PoseidonHash::tto_crh(&hash, address, old_note_blinding)?;
+    let old_note = PoseidonHash::crh(
+        &hash,
+        &[old_note_balance_root, old_note_identifier, nullifier],
+    )?;
+    let old_note_nullifier_hash = PoseidonHash::tto_crh(&hash, old_note, nullifier)?;
 
-    tree.insert_batch(&BTreeMap::from([(0, old_note)]), &mimc)?;
+    tree.insert_batch(&BTreeMap::from([(0, old_note)]), &hash)?;
 
     // Swap 100 asset 2 to 200 asset 3 with 50 asset 1 fees
     let diff_balances = [Fr::from(-50), Fr::from(-100), Fr::from(200)];
-    let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
+    let diff_balance_root = PoseidonHash::crh(&hash, &diff_balances)?;
 
     let new_note_blinding = Fr::rand(rng);
     let new_note_balances = [Fr::from(250), Fr::from(100), Fr::from(200)];
-    let new_note_balance_root = mimc.permute_non_feistel(new_note_balances.to_vec())[0];
-    let new_note = mimc.permute_non_feistel(vec![
-        new_note_balance_root,
-        mimc.permute_non_feistel(vec![address, new_note_blinding])[0],
-        nullifier,
-    ])[0];
+    let new_note_balance_root = PoseidonHash::crh(&hash, &new_note_balances)?;
+    let new_note = PoseidonHash::crh(
+        &hash,
+        &[
+            new_note_balance_root,
+            PoseidonHash::tto_crh(&hash, address, new_note_blinding)?,
+            nullifier,
+        ],
+    )?;
 
-    let circuit = TestCircuit2Asset {
+    let circuit = TestMain {
         address,
         nullifier,
         aux: Fr::zero(),
@@ -212,7 +227,7 @@ pub fn diff_swap_plus_fee() -> Result<(), Box<dyn Error>> {
         new_note,
         new_note_blinding,
         new_note_balances,
-        parameters: mimc,
+        parameters: hash,
         _hg: std::marker::PhantomData,
     };
     circuit.generate_constraints(cs.clone())?;
@@ -225,8 +240,8 @@ pub fn diff_swap_plus_fee() -> Result<(), Box<dyn Error>> {
 #[test]
 pub fn cannot_withdraw_empty() -> Result<(), Box<dyn Error>> {
     let rng = &mut test_rng();
-    let mimc = mimc();
-    let (_, tree) = TestCircuit2Asset::empty(&mimc);
+    let hash = poseidon_bn254();
+    let (_, tree) = TestMain::empty(&hash);
     let cs = ConstraintSystem::<Fr>::new_ref();
 
     let address_str = "osmo1zlymlax05tg9km9jyw496jx60v86m4548xw2xu";
@@ -234,18 +249,21 @@ pub fn cannot_withdraw_empty() -> Result<(), Box<dyn Error>> {
     let nullifier = Fr::rand(rng);
 
     let diff_balances = [Fr::from(-100), Fr::zero(), Fr::zero()];
-    let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
+    let diff_balance_root = PoseidonHash::crh(&hash, &diff_balances)?;
 
     let new_note_blinding = Fr::rand(rng);
     let new_note_balances = [Fr::from(-100), Fr::from(0), Fr::from(0)];
-    let new_note_balance_root = mimc.permute_non_feistel(new_note_balances.to_vec())[0];
-    let new_note = mimc.permute_non_feistel(vec![
-        new_note_balance_root,
-        mimc.permute_non_feistel(vec![address, new_note_blinding])[0],
-        nullifier,
-    ])[0];
+    let new_note_balance_root = PoseidonHash::crh(&hash, &new_note_balances)?;
+    let new_note = PoseidonHash::crh(
+        &hash,
+        &[
+            new_note_balance_root,
+            PoseidonHash::tto_crh(&hash, address, new_note_blinding)?,
+            nullifier,
+        ],
+    )?;
 
-    let circuit = TestCircuit2Asset {
+    let circuit = TestMain {
         address,
         nullifier,
         aux: Fr::zero(),
@@ -259,7 +277,7 @@ pub fn cannot_withdraw_empty() -> Result<(), Box<dyn Error>> {
         new_note,
         new_note_blinding,
         new_note_balances,
-        parameters: mimc,
+        parameters: hash,
         _hg: std::marker::PhantomData,
     };
     circuit.generate_constraints(cs.clone())?;

@@ -1,14 +1,12 @@
 use std::collections::BTreeMap;
 
-use ark_crypto_primitives::{
-    crh::{TwoToOneCRH, TwoToOneCRHGadget},
-    CRHGadget, CRH,
+use ark_crypto_primitives::crh::{
+    CRHScheme, CRHSchemeGadget, TwoToOneCRHScheme, TwoToOneCRHSchemeGadget,
 };
-use ark_ff::{to_bytes, PrimeField};
+use ark_ff::PrimeField;
 use ark_r1cs_std::{
     fields::fp::FpVar,
     prelude::{AllocVar, Boolean, EqGadget, FieldVar},
-    ToBytesGadget,
 };
 use ark_relations::{
     ns,
@@ -36,9 +34,16 @@ pub struct MainSpendCircuit<
     F: PrimeField,
     HP: Clone,
     HPV: AllocVar<HP, F>,
-    H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
-    HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
-        + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
+    H: CRHScheme<Input = [F], Output = F, Parameters = HP>
+        + TwoToOneCRHScheme<Input = F, Output = F, Parameters = HP>,
+    HG: CRHSchemeGadget<H, F, InputVar = [FpVar<F>], OutputVar = FpVar<F>, ParametersVar = HPV>
+        + TwoToOneCRHSchemeGadget<
+            H,
+            F,
+            InputVar = FpVar<F>,
+            OutputVar = FpVar<F>,
+            ParametersVar = HPV,
+        >,
 > {
     pub nullifier: F,
     pub utxo_root: F, // Public
@@ -58,9 +63,16 @@ impl<
         F: PrimeField,
         HP: Clone,
         HPV: AllocVar<HP, F>,
-        H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
-        HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
-            + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
+        H: CRHScheme<Input = [F], Output = F, Parameters = HP>
+            + TwoToOneCRHScheme<Input = F, Output = F, Parameters = HP>,
+        HG: CRHSchemeGadget<H, F, InputVar = [FpVar<F>], OutputVar = FpVar<F>, ParametersVar = HPV>
+            + TwoToOneCRHSchemeGadget<
+                H,
+                F,
+                InputVar = FpVar<F>,
+                OutputVar = FpVar<F>,
+                ParametersVar = HPV,
+            >,
     > MainSpendCircuit<N_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG>
 {
     pub fn empty(hasher: &HP) -> (Self, SparseMerkleTree<F, H, TREE_DEPTH>) {
@@ -104,22 +116,23 @@ impl<
         F: PrimeField,
         HP: Clone,
         HPV: AllocVar<HP, F>,
-        H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
-        HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
-            + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
+        H: CRHScheme<Input = [F], Output = F, Parameters = HP>
+            + TwoToOneCRHScheme<Input = F, Output = F, Parameters = HP>,
+        HG: CRHSchemeGadget<H, F, InputVar = [FpVar<F>], OutputVar = FpVar<F>, ParametersVar = HPV>
+            + TwoToOneCRHSchemeGadget<
+                H,
+                F,
+                InputVar = FpVar<F>,
+                OutputVar = FpVar<F>,
+                ParametersVar = HPV,
+            >,
     > ConstraintSynthesizer<F> for MainSpendCircuit<N_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG>
 {
     fn generate_constraints(self, cs: ConstraintSystemRef<F>) -> Result<(), SynthesisError> {
         let zero_balance_root = FpVar::new_constant(
             ns!(cs, "zero_balance_root"),
-            <H as CRH>::evaluate(
-                &self.parameters,
-                &vec![F::zero(); N_ASSETS]
-                    .into_iter()
-                    .flat_map(|e| to_bytes!(e).expect("must serialize"))
-                    .collect::<Vec<u8>>(),
-            )
-            .expect("zero hash must not fail"),
+            <H as CRHScheme>::evaluate(&self.parameters, [F::zero(); N_ASSETS])
+                .expect("zero hash must not fail"),
         )?;
         let parameters = HPV::new_constant(ns!(cs, "parameters"), &self.parameters)?;
 
@@ -142,23 +155,19 @@ impl<
         })?;
 
         // Calculate old note
-        let old_note = <HG as CRHGadget<H, F>>::evaluate(
+        let old_note = <HG as CRHSchemeGadget<H, F>>::evaluate(
             &parameters,
-            &old_note_balance_root
-                .to_bytes()?
-                .into_iter()
-                .chain(old_note_identifier.to_bytes()?.into_iter())
-                .chain(nullifier.to_bytes()?.into_iter())
-                .collect::<Vec<_>>(),
+            &[
+                old_note_balance_root.clone(),
+                old_note_identifier,
+                nullifier.clone(),
+            ],
         )?;
 
         // Calculate validity of old note nullifier hash
-        let is_nullifier_valid =
-            old_note_nullifier_hash.is_eq(&<HG as TwoToOneCRHGadget<H, F>>::evaluate(
-                &parameters,
-                &old_note.to_bytes()?,
-                &nullifier.to_bytes()?,
-            )?)?;
+        let is_nullifier_valid = old_note_nullifier_hash.is_eq(
+            &<HG as TwoToOneCRHSchemeGadget<H, F>>::evaluate(&parameters, &old_note, &nullifier)?,
+        )?;
 
         // Calculate validity of old note path
         let is_old_note_path_valid =
@@ -181,9 +190,16 @@ pub struct MainSettleCircuit<
     F: PrimeField,
     HP: Clone,
     HPV: AllocVar<HP, F>,
-    H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
-    HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
-        + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
+    H: CRHScheme<Input = [F], Output = F, Parameters = HP>
+        + TwoToOneCRHScheme<Input = F, Output = F, Parameters = HP>,
+    HG: CRHSchemeGadget<H, F, InputVar = [FpVar<F>], OutputVar = FpVar<F>, ParametersVar = HPV>
+        + TwoToOneCRHSchemeGadget<
+            H,
+            F,
+            InputVar = FpVar<F>,
+            OutputVar = FpVar<F>,
+            ParametersVar = HPV,
+        >,
 > {
     pub address: F,
     pub nullifier: F,
@@ -212,9 +228,16 @@ impl<
         F: PrimeField,
         HP: Clone,
         HPV: AllocVar<HP, F>,
-        H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
-        HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
-            + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
+        H: CRHScheme<Input = [F], Output = F, Parameters = HP>
+            + TwoToOneCRHScheme<Input = F, Output = F, Parameters = HP>,
+        HG: CRHSchemeGadget<H, F, InputVar = [FpVar<F>], OutputVar = FpVar<F>, ParametersVar = HPV>
+            + TwoToOneCRHSchemeGadget<
+                H,
+                F,
+                InputVar = FpVar<F>,
+                OutputVar = FpVar<F>,
+                ParametersVar = HPV,
+            >,
     > MainSettleCircuit<N_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG>
 {
     pub fn empty(hasher: &HP) -> (Self, SparseMerkleTree<F, H, TREE_DEPTH>) {
@@ -269,22 +292,23 @@ impl<
         F: PrimeField,
         HP: Clone,
         HPV: AllocVar<HP, F>,
-        H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
-        HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
-            + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
+        H: CRHScheme<Input = [F], Output = F, Parameters = HP>
+            + TwoToOneCRHScheme<Input = F, Output = F, Parameters = HP>,
+        HG: CRHSchemeGadget<H, F, InputVar = [FpVar<F>], OutputVar = FpVar<F>, ParametersVar = HPV>
+            + TwoToOneCRHSchemeGadget<
+                H,
+                F,
+                InputVar = FpVar<F>,
+                OutputVar = FpVar<F>,
+                ParametersVar = HPV,
+            >,
     > ConstraintSynthesizer<F> for MainSettleCircuit<N_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG>
 {
     fn generate_constraints(self, cs: ConstraintSystemRef<F>) -> Result<(), SynthesisError> {
         let zero_balance_root = FpVar::new_constant(
             ns!(cs, "zero_balance_root"),
-            <H as CRH>::evaluate(
-                &self.parameters,
-                &vec![F::zero(); N_ASSETS]
-                    .into_iter()
-                    .flat_map(|e| to_bytes!(e).expect("must serialize"))
-                    .collect::<Vec<u8>>(),
-            )
-            .expect("zero hash must not fail"),
+            <H as CRHScheme>::evaluate(&self.parameters, [F::zero(); N_ASSETS])
+                .expect("zero hash must not fail"),
         )?;
         let parameters = HPV::new_constant(ns!(cs, "parameters"), &self.parameters)?;
 
@@ -325,23 +349,19 @@ impl<
             calculate_balance_root::<F, H, HG>(&parameters, &old_note_balances)?;
 
         // Calculate old note
-        let old_note = <HG as CRHGadget<H, F>>::evaluate(
+        let old_note = <HG as CRHSchemeGadget<H, F>>::evaluate(
             &parameters,
-            &old_note_balance_root
-                .to_bytes()?
-                .into_iter()
-                .chain(old_note_identifier.to_bytes()?.into_iter())
-                .chain(nullifier.to_bytes()?.into_iter())
-                .collect::<Vec<_>>(),
+            &[
+                old_note_balance_root.clone(),
+                old_note_identifier,
+                nullifier.clone(),
+            ],
         )?;
 
         // Calculate validity of old note nullifier hash
-        let is_nullifier_valid =
-            old_note_nullifier_hash.is_eq(&<HG as TwoToOneCRHGadget<H, F>>::evaluate(
-                &parameters,
-                &old_note.to_bytes()?,
-                &nullifier.to_bytes()?,
-            )?)?;
+        let is_nullifier_valid = old_note_nullifier_hash.is_eq(
+            &<HG as TwoToOneCRHSchemeGadget<H, F>>::evaluate(&parameters, &old_note, &nullifier)?,
+        )?;
 
         // Assert validity of old note if there are some balance in it
         old_note_balance_root
@@ -355,22 +375,17 @@ impl<
             calculate_balance_root::<F, H, HG>(&parameters, &new_note_balances)?;
 
         // Assert validity of new note
-        new_note.enforce_equal(&<HG as CRHGadget<H, F>>::evaluate(
+        new_note.enforce_equal(&<HG as CRHSchemeGadget<H, F>>::evaluate(
             &parameters,
-            &new_note_balance_root
-                .to_bytes()?
-                .into_iter()
-                .chain(
-                    <HG as TwoToOneCRHGadget<H, F>>::evaluate(
-                        &parameters,
-                        &address.to_bytes()?,
-                        &new_note_blinding.to_bytes()?,
-                    )?
-                    .to_bytes()?
-                    .into_iter(),
-                )
-                .chain(nullifier.to_bytes()?.into_iter())
-                .collect::<Vec<_>>(),
+            &[
+                new_note_balance_root,
+                <HG as TwoToOneCRHSchemeGadget<H, F>>::evaluate(
+                    &parameters,
+                    &address,
+                    &new_note_blinding,
+                )?,
+                nullifier,
+            ],
         )?)?;
 
         // Assert Validity of all balances (inflow = outflow)

@@ -1,12 +1,10 @@
-use ark_crypto_primitives::{
-    crh::{TwoToOneCRH, TwoToOneCRHGadget},
-    CRHGadget, CRH,
+use ark_crypto_primitives::crh::{
+    CRHScheme, CRHSchemeGadget, TwoToOneCRHScheme, TwoToOneCRHSchemeGadget,
 };
 use ark_ff::PrimeField;
 use ark_r1cs_std::{
     fields::fp::FpVar,
     prelude::{AllocVar, Boolean, EqGadget, FieldVar},
-    ToBytesGadget,
 };
 use ark_relations::{
     ns,
@@ -37,9 +35,16 @@ pub struct MigrationCircuit<
     F: PrimeField,
     HP: Clone,
     HPV: AllocVar<HP, F>,
-    H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
-    HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
-        + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
+    H: CRHScheme<Input = [F], Output = F, Parameters = HP>
+        + TwoToOneCRHScheme<Input = F, Output = F, Parameters = HP>,
+    HG: CRHSchemeGadget<H, F, InputVar = [FpVar<F>], OutputVar = FpVar<F>, ParametersVar = HPV>
+        + TwoToOneCRHSchemeGadget<
+            H,
+            F,
+            InputVar = FpVar<F>,
+            OutputVar = FpVar<F>,
+            ParametersVar = HPV,
+        >,
 > {
     pub address: F,
     pub nullifier: F,
@@ -64,9 +69,16 @@ impl<
         F: PrimeField,
         HP: Clone,
         HPV: AllocVar<HP, F>,
-        H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
-        HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
-            + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
+        H: CRHScheme<Input = [F], Output = F, Parameters = HP>
+            + TwoToOneCRHScheme<Input = F, Output = F, Parameters = HP>,
+        HG: CRHSchemeGadget<H, F, InputVar = [FpVar<F>], OutputVar = FpVar<F>, ParametersVar = HPV>
+            + TwoToOneCRHSchemeGadget<
+                H,
+                F,
+                InputVar = FpVar<F>,
+                OutputVar = FpVar<F>,
+                ParametersVar = HPV,
+            >,
     > MigrationCircuit<N_ASSETS, M_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG>
 {
     pub fn empty_without_tree(hasher: &HP) -> Self {
@@ -96,9 +108,16 @@ impl<
         F: PrimeField,
         HP: Clone,
         HPV: AllocVar<HP, F>,
-        H: CRH<Output = F, Parameters = HP> + TwoToOneCRH<Output = F, Parameters = HP>,
-        HG: CRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>
-            + TwoToOneCRHGadget<H, F, OutputVar = FpVar<F>, ParametersVar = HPV>,
+        H: CRHScheme<Input = [F], Output = F, Parameters = HP>
+            + TwoToOneCRHScheme<Input = F, Output = F, Parameters = HP>,
+        HG: CRHSchemeGadget<H, F, InputVar = [FpVar<F>], OutputVar = FpVar<F>, ParametersVar = HPV>
+            + TwoToOneCRHSchemeGadget<
+                H,
+                F,
+                InputVar = FpVar<F>,
+                OutputVar = FpVar<F>,
+                ParametersVar = HPV,
+            >,
     > ConstraintSynthesizer<F>
     for MigrationCircuit<N_ASSETS, M_ASSETS, TREE_DEPTH, F, HP, HPV, H, HG>
 {
@@ -142,31 +161,26 @@ impl<
             calculate_balance_root::<F, H, HG>(&parameters, &old_note_balances)?;
 
         // Calculate old note identifier
-        let note_identifier = <HG as TwoToOneCRHGadget<H, F>>::evaluate(
+        let note_identifier = <HG as TwoToOneCRHSchemeGadget<H, F>>::evaluate(
             &parameters,
-            &address.to_bytes()?,
-            &old_note_blinding.to_bytes()?,
-        )?
-        .to_bytes()?;
+            &address,
+            &old_note_blinding,
+        )?;
 
         // Calculate old note
-        let old_note = <HG as CRHGadget<H, F>>::evaluate(
+        let old_note = <HG as CRHSchemeGadget<H, F>>::evaluate(
             &parameters,
-            &old_note_balance_root
-                .to_bytes()?
-                .into_iter()
-                .chain(note_identifier.to_bytes()?.into_iter())
-                .chain(nullifier.to_bytes()?.into_iter())
-                .collect::<Vec<_>>(),
+            &[
+                old_note_balance_root,
+                note_identifier.clone(),
+                nullifier.clone(),
+            ],
         )?;
 
         // Calculate validity of old note nullifier hash
-        let is_nullifier_valid =
-            old_note_nullifier_hash.is_eq(&<HG as TwoToOneCRHGadget<H, F>>::evaluate(
-                &parameters,
-                &old_note.to_bytes()?,
-                &nullifier.to_bytes()?,
-            )?)?;
+        let is_nullifier_valid = old_note_nullifier_hash.is_eq(
+            &<HG as TwoToOneCRHSchemeGadget<H, F>>::evaluate(&parameters, &old_note, &nullifier)?,
+        )?;
 
         // Calculate validity of old note path
         let is_old_note_path_valid =
@@ -182,14 +196,9 @@ impl<
             calculate_balance_root::<F, H, HG>(&parameters, &new_note_balances)?;
 
         // Assert validity of new note
-        new_note.enforce_equal(&<HG as CRHGadget<H, F>>::evaluate(
+        new_note.enforce_equal(&<HG as CRHSchemeGadget<H, F>>::evaluate(
             &parameters,
-            &new_note_balance_root
-                .to_bytes()?
-                .into_iter()
-                .chain(note_identifier.to_bytes()?.into_iter())
-                .chain(nullifier.to_bytes()?.into_iter())
-                .collect::<Vec<_>>(),
+            &[new_note_balance_root, note_identifier, nullifier],
         )?)?;
 
         // Assert that old note balances are equal to new note balances

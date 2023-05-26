@@ -1,6 +1,8 @@
 use ark_bn254::Fr;
 use ark_ff::PrimeField;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Valid, Write,
+};
 use ark_std::{UniformRand, Zero};
 use circuits::N_ASSETS;
 use rand::rngs::OsRng;
@@ -67,7 +69,7 @@ impl Account {
     }
 
     pub fn from_string(account: &str) -> Self {
-        Self::deserialize(&base64::decode(account).expect("Invalid account hex")[..])
+        Self::deserialize_compressed(&base64::decode(account).expect("Invalid account hex")[..])
             .expect("Unable to deserialize account")
     }
 
@@ -89,20 +91,34 @@ impl Account {
     }
 }
 
+impl Valid for Asset {
+    fn check(&self) -> Result<(), SerializationError> {
+        Ok(())
+    }
+}
+
 impl CanonicalSerialize for Asset {
-    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), SerializationError> {
+    fn serialized_size(&self, compress: ark_serialize::Compress) -> usize {
+        16 * N_ASSETS
+    }
+
+    fn serialize_with_mode<W: Write>(
+        &self,
+        mut writer: W,
+        compress: ark_serialize::Compress,
+    ) -> Result<(), SerializationError> {
         writer
             .write_all(self.0.map(|x| x.to_le_bytes()).flatten())
             .map_err(SerializationError::IoError)
     }
-
-    fn serialized_size(&self) -> usize {
-        16 * N_ASSETS
-    }
 }
 
 impl CanonicalDeserialize for Asset {
-    fn deserialize<R: Read>(mut reader: R) -> Result<Self, SerializationError> {
+    fn deserialize_with_mode<R: Read>(
+        mut reader: R,
+        compress: ark_serialize::Compress,
+        validate: ark_serialize::Validate,
+    ) -> Result<Self, SerializationError> {
         let mut bytes = [0u8; 16 * N_ASSETS];
         reader.read_exact(&mut bytes)?;
         let mut res = [0u128; N_ASSETS];
@@ -127,8 +143,10 @@ mod tests {
     fn correct_serialization() {
         let asset: Asset = Asset([0, 1, 2, 3, 4, 5, 6]);
         let mut bytes = Vec::new();
-        asset.serialize(&mut bytes).expect("serialization failed");
-        let asset2 = Asset::deserialize(&bytes[..]).expect("deserialization failed");
+        asset
+            .serialize_compressed(&mut bytes)
+            .expect("serialization failed");
+        let asset2 = Asset::deserialize_compressed(&bytes[..]).expect("deserialization failed");
         assert_eq!(asset, asset2);
     }
 }

@@ -1,10 +1,12 @@
 use std::collections::BTreeMap;
 
 use ark_bn254::Fr;
+use ark_crypto_primitives::sponge::poseidon::PoseidonConfig;
 use ark_ff::{BigInteger, PrimeField};
 use ark_std::Zero;
-use arkworks_mimc::{MiMC, MiMCNonFeistelCRH};
-use circuits::{merkle_tree::SparseMerkleTree as SMT, utils::mimc, MiMCParam, TREE_DEPTH};
+use circuits::{
+    merkle_tree::SparseMerkleTree as SMT, poseidon::PoseidonHash, utils::poseidon_bn254, TREE_DEPTH,
+};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::prelude::*;
 
@@ -12,15 +14,15 @@ use wasm_bindgen::prelude::*;
 pub struct SparseMerkleTree {
     pub latest_index: usize,
     #[wasm_bindgen(skip)]
-    pub tree: SMT<Fr, MiMCNonFeistelCRH<Fr, MiMCParam>, { TREE_DEPTH }>,
-    hasher: MiMC<Fr, MiMCParam>,
+    pub tree: SMT<Fr, PoseidonHash<Fr>, { TREE_DEPTH }>,
+    hasher: PoseidonConfig<Fr>,
 }
 
 #[wasm_bindgen]
 impl SparseMerkleTree {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        let hasher = mimc();
+        let hasher = poseidon_bn254();
         Self {
             latest_index: 0,
             tree: SMT::new(&BTreeMap::new(), &hasher, &Fr::zero()).expect("Failed to create tree"),
@@ -30,7 +32,7 @@ impl SparseMerkleTree {
 
     #[wasm_bindgen]
     pub fn root(&self) -> String {
-        base64::encode(self.tree.root().into_repr().to_bytes_le())
+        base64::encode(self.tree.root().into_bigint().to_bytes_le())
     }
 
     #[wasm_bindgen]

@@ -7,15 +7,14 @@ edition = "2021"
 crate-type = ["lib", "cdylib"] 
 
 [dependencies]
-ark-ff = { version = "^0.3.0", default-features = false, features = ["parallel"] }
-ark-r1cs-std = { version = "^0.3.0", default-features = false }
-ark-std = { version = "^0.3.0", default-features = false, features = ["parallel"] }
-ark-relations = { version = "^0.3.0", default-features = false }
-ark-crypto-primitives = { version = "^0.3.0", default-features = false, features = ["parallel"] }
-ark-bn254 = { version = "^0.3.0", default-features = false, features = ["curve"] }
-ark-groth16 = { version = "^0.3.0", default-features = false, features = ["parallel"] }
-ark-serialize = { version = "^0.3.0", default-features = false }
-arkworks-mimc = { version = "0.3.0", default-features = false, features = ["r1cs", "mimc-7-91-bn254"] }
+ark-ff = { version = "^0.4.0", default-features = false, features = ["parallel"] }
+ark-r1cs-std = { version = "^0.4.0", default-features = false }
+ark-std = { version = "^0.4.0", default-features = false, features = ["parallel"] }
+ark-relations = { version = "^0.4.0", default-features = false }
+ark-crypto-primitives = { version = "^0.4.0", default-features = false, features = ["parallel", "crh", "sponge"] }
+ark-bn254 = { version = "^0.4.0", default-features = false, features = ["curve"] }
+ark-groth16 = { version = "^0.4.0", default-features = false, features = ["parallel"] }
+ark-serialize = { version = "^0.4.0", default-features = false }
 
 circuits = { path = "../circuits" }
 

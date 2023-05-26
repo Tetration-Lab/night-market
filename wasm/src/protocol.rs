@@ -1,10 +1,13 @@
 use ark_bn254::{Bn254, Fr};
-use ark_crypto_primitives::SNARK;
+use ark_crypto_primitives::snark::SNARK;
+use ark_ff::ToConstraintField;
 use ark_groth16::{Groth16, ProvingKey};
 use ark_serialize::CanonicalDeserialize;
 use ark_std::Zero;
-use arkworks_mimc::utils::to_field_elements;
-use circuits::{merkle_tree::Path, utils::mimc, MainCircuitBn254, N_ASSETS, TREE_DEPTH};
+use circuits::{
+    merkle_tree::Path, poseidon::PoseidonHash, utils::poseidon_bn254, MainCircuitBn254, N_ASSETS,
+    TREE_DEPTH,
+};
 use osmosis_std::types::osmosis::gamm::v1beta1::MsgSwapExactAmountIn;
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
@@ -43,7 +46,7 @@ impl Protocol {
         tree: &SparseMerkleTree,
         diffs: JsValue,
     ) -> JsValue {
-        let mimc = mimc();
+        let hash = poseidon_bn254();
 
         // Deserialize diffs
         let diffs =
@@ -57,24 +60,32 @@ impl Protocol {
 
         // Calculate diff balances and diff balance root
         let diff_balances = AssetDiff::balances(&diffs);
-        let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
+        let diff_balance_root =
+            PoseidonHash::crh(&hash, &diff_balances).expect("Failed to hash balance root");
 
         // Calculate old note and old note nullifier hash
         let old_note_balances = account.balance.0.map(Fr::from);
-        let old_note_balance_root = mimc.permute_non_feistel(old_note_balances.to_vec())[0];
+        let old_note_balance_root =
+            PoseidonHash::crh(&hash, &old_note_balances).expect("Failed to hash balance root");
         let old_note_identifier =
-            mimc.permute_non_feistel(vec![account.address, account.latest_blinding])[0];
-        let old_note = mimc.permute_non_feistel(vec![
-            old_note_balance_root,
-            old_note_identifier,
-            account.nullifier,
-        ])[0];
+            PoseidonHash::tto_crh(&hash, account.address, account.latest_blinding)
+                .expect("Failed to hash identifier");
+        let old_note = PoseidonHash::crh(
+            &hash,
+            &[
+                old_note_balance_root,
+                old_note_identifier,
+                account.nullifier,
+            ],
+        )
+        .expect("Failed to hash old note");
 
         // Calculate old note path and old note nullifier hash
         let (merkle_path, old_note_nullifier_hash, root) = match account.index {
             Some(i) => (
                 tree.tree.generate_membership_proof(i as u64),
-                mimc.permute_non_feistel(vec![old_note, account.nullifier])[0],
+                PoseidonHash::tto_crh(&hash, old_note, account.nullifier)
+                    .expect("Failed to hash nullifier"),
                 tree.tree.root(),
             ),
             None => (Path::empty(), Fr::zero(), Fr::zero()),
@@ -83,12 +94,18 @@ impl Protocol {
         // Calculate new note and new note nullifier hash
         let new_note_blinding = new_account.latest_blinding;
         let new_note_balances = new_account.balance.0.map(Fr::from);
-        let new_note_balance_root = mimc.permute_non_feistel(new_note_balances.to_vec())[0];
-        let new_note = mimc.permute_non_feistel(vec![
-            new_note_balance_root,
-            mimc.permute_non_feistel(vec![account.address, new_note_blinding])[0],
-            account.nullifier,
-        ])[0];
+        let new_note_balance_root =
+            PoseidonHash::crh(&hash, &new_note_balances).expect("Failed to hash balance root");
+        let new_note = PoseidonHash::crh(
+            &hash,
+            &[
+                new_note_balance_root,
+                PoseidonHash::tto_crh(&hash, account.address, new_note_blinding)
+                    .expect("Failed to hash identifier"),
+                account.nullifier,
+            ],
+        )
+        .expect("Failed to hash new note");
 
         // Generate proof
         let proof = {
@@ -109,7 +126,7 @@ impl Protocol {
                     new_note,
                     new_note_blinding,
                     new_note_balances,
-                    parameters: mimc,
+                    parameters: hash,
                     _hg: std::marker::PhantomData,
                 },
                 &mut OsRng,
@@ -138,23 +155,24 @@ impl Protocol {
         swap_argument: JsValue,
         timeout: Option<u64>,
     ) -> JsValue {
-        let mimc = mimc();
+        let hash = poseidon_bn254();
 
         let mut swap_argument: MsgSwapExactAmountIn =
             from_value(swap_argument).expect("Failed to deserialize swap args");
         // Normalize swap argument and then calculate aux
         swap_argument.sender = String::new();
-        let aux = mimc.permute_non_feistel(to_field_elements::<Fr>(
-            &to_vec(&swap_argument)
-                .expect("Failed to serialize swap args")
-                .into_iter()
-                .chain(
-                    to_vec(&timeout)
-                        .expect("Failed to serialize timeout")
-                        .into_iter(),
-                )
-                .collect::<Vec<_>>(),
-        ))[0];
+        let aux = (&to_vec(&swap_argument)
+            .expect("Failed to serialize swap args")
+            .into_iter()
+            .chain(
+                to_vec(&timeout)
+                    .expect("Failed to serialize timeout")
+                    .into_iter(),
+            )
+            .collect::<Vec<_>>())
+            .to_field_elements()
+            .and_then(|e| PoseidonHash::crh(&hash, &e).ok())
+            .expect("Failed to hash aux");
 
         // Deserialize diffs
         let diffs =
@@ -168,24 +186,32 @@ impl Protocol {
 
         // Calculate diff balances and diff balance root
         let diff_balances = AssetDiff::balances(&diffs);
-        let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
+        let diff_balance_root =
+            PoseidonHash::crh(&hash, &diff_balances).expect("Failed to hash balance root");
 
         // Calculate old note and old note nullifier hash
         let old_note_balances = account.balance.0.map(Fr::from);
-        let old_note_balance_root = mimc.permute_non_feistel(old_note_balances.to_vec())[0];
+        let old_note_balance_root =
+            PoseidonHash::crh(&hash, &old_note_balances).expect("Failed to hash balance root");
         let old_note_identifier =
-            mimc.permute_non_feistel(vec![account.address, account.latest_blinding])[0];
-        let old_note = mimc.permute_non_feistel(vec![
-            old_note_balance_root,
-            old_note_identifier,
-            account.nullifier,
-        ])[0];
+            PoseidonHash::tto_crh(&hash, account.address, account.latest_blinding)
+                .expect("Failed to hash identifier");
+        let old_note = PoseidonHash::crh(
+            &hash,
+            &[
+                old_note_balance_root,
+                old_note_identifier,
+                account.nullifier,
+            ],
+        )
+        .expect("Failed to hash old note");
 
         // Calculate old note path and old note nullifier hash
         let (merkle_path, old_note_nullifier_hash, root) = match account.index {
             Some(i) => (
                 tree.tree.generate_membership_proof(i as u64),
-                mimc.permute_non_feistel(vec![old_note, account.nullifier])[0],
+                PoseidonHash::tto_crh(&hash, old_note, account.nullifier)
+                    .expect("Failed to hash nullifier"),
                 tree.tree.root(),
             ),
             None => (Path::empty(), Fr::zero(), Fr::zero()),
@@ -194,12 +220,18 @@ impl Protocol {
         // Calculate new note and new note nullifier hash
         let new_note_blinding = new_account.latest_blinding;
         let new_note_balances = new_account.balance.0.map(Fr::from);
-        let new_note_balance_root = mimc.permute_non_feistel(new_note_balances.to_vec())[0];
-        let new_note = mimc.permute_non_feistel(vec![
-            new_note_balance_root,
-            mimc.permute_non_feistel(vec![account.address, new_note_blinding])[0],
-            account.nullifier,
-        ])[0];
+        let new_note_balance_root =
+            PoseidonHash::crh(&hash, &new_note_balances).expect("Failed to hash balance root");
+        let new_note = PoseidonHash::crh(
+            &hash,
+            &[
+                new_note_balance_root,
+                PoseidonHash::tto_crh(&hash, account.address, new_note_blinding)
+                    .expect("Failed to hash identifier"),
+                account.nullifier,
+            ],
+        )
+        .expect("Failed to hash new note");
 
         // Generate proof
         let proof = {
@@ -220,7 +252,7 @@ impl Protocol {
                     new_note,
                     new_note_blinding,
                     new_note_balances,
-                    parameters: mimc,
+                    parameters: hash,
                     _hg: std::marker::PhantomData,
                 },
                 &mut OsRng,

@@ -2,7 +2,7 @@ use ark_serialize::{CanonicalSerialize, SerializationError};
 
 pub fn serialize<T: CanonicalSerialize>(value: &T) -> Result<Vec<u8>, SerializationError> {
     let mut buf = Vec::new();
-    value.serialize(&mut buf)?;
+    value.serialize_compressed(&mut buf)?;
     Ok(buf)
 }
 

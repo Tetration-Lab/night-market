@@ -13,13 +13,12 @@ use std::{
 };
 
 use ark_bn254::{Bn254, Fr};
-use ark_crypto_primitives::SNARK;
-use ark_ff::{BigInteger, PrimeField};
-use ark_groth16::{Groth16, Proof, VerifyingKey};
+use ark_crypto_primitives::snark::SNARK;
+use ark_ff::{BigInteger, PrimeField, ToConstraintField};
+use ark_groth16::{r1cs_to_qap::LibsnarkReduction, Groth16, Proof, VerifyingKey};
 use ark_serialize::CanonicalDeserialize;
 use ark_std::Zero;
-use arkworks_mimc::utils::to_field_elements;
-use circuits::{utils::mimc, TREE_DEPTH};
+use circuits::{poseidon::PoseidonHash, utils::poseidon_bn254, TREE_DEPTH};
 use cosmwasm_std::{
     entry_point, to_binary, to_vec, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order,
     QueryResponse, Response, Uint128, WasmMsg,
@@ -27,7 +26,7 @@ use cosmwasm_std::{
 use cw_merkle_tree::MerkleTree;
 use cw_storage_plus::Bound;
 use error::ContractError;
-use hasher::MiMCHasher;
+use hasher::PoseidonHasher;
 use msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use serde_json::json;
 use state::{ADMIN, ASSETS, LATEST_SWAP, MAIN_CIRCUIT_VK, NULLIFIER, TREE};
@@ -39,7 +38,7 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    let mimc = mimc();
+    let hasher = poseidon_bn254();
 
     ADMIN.set(deps.branch(), Some(info.sender))?;
     ASSETS.save(deps.storage, &msg.assets.map(|e| e.to_lowercase()))?;
@@ -47,8 +46,8 @@ pub fn instantiate(
     TREE.init(
         deps.storage,
         TREE_DEPTH as u8,
-        base64::encode(Fr::zero().into_repr().to_bytes_le()),
-        &MiMCHasher(&mimc),
+        base64::encode(Fr::zero().into_bigint().to_bytes_le()),
+        &PoseidonHasher(&hasher),
     )?;
 
     Ok(Response::new())
@@ -70,23 +69,23 @@ pub fn execute(
             proof,
         } => {
             let assets = ASSETS.load(deps.storage)?;
-            let mimc = mimc();
+            let hasher = poseidon_bn254();
             let vk = VerifyingKey::<Bn254>::deserialize_uncompressed(
                 &MAIN_CIRCUIT_VK.load(deps.storage)?[..],
             )?;
-            let proof = Proof::deserialize(&base64::decode(&proof)?[..])?;
+            let proof = Proof::deserialize_compressed(&base64::decode(&proof)?[..])?;
             let nullifier_hash = Fr::from_le_bytes_mod_order(&base64::decode(&nullifier_hash)?);
 
             let tree_root = Fr::from_le_bytes_mod_order(&base64::decode(&root)?);
             if tree_root != Fr::zero() {
-                let tree_root_normalized = base64::encode(&tree_root.into_repr().to_bytes_le());
+                let tree_root_normalized = base64::encode(&tree_root.into_bigint().to_bytes_le());
                 TREE.is_valid_root(deps.storage, &tree_root_normalized)?
                     .then_some(())
                     .ok_or(ContractError::InvalidRoot)?;
             }
 
             if nullifier_hash != Fr::zero() {
-                let nullifier_normalized = nullifier_hash.into_repr().to_bytes_le();
+                let nullifier_normalized = nullifier_hash.into_bigint().to_bytes_le();
                 NULLIFIER
                     .has(deps.storage, &nullifier_normalized)
                     .not()
@@ -97,8 +96,9 @@ pub fn execute(
 
             let funds_map =
                 BTreeMap::from_iter(info.funds.into_iter().map(|e| (e.denom, e.amount)));
-            let diff_balance_root = mimc.permute_non_feistel(
-                assets
+            let diff_balance_root = PoseidonHash::crh(
+                &hasher,
+                &assets
                     .iter()
                     .map(|a| {
                         funds_map
@@ -107,9 +107,9 @@ pub fn execute(
                             .unwrap_or_default()
                     })
                     .collect::<Vec<_>>(),
-            )[0];
+            )?;
 
-            let is_valid = Groth16::verify(
+            let is_valid = Groth16::<Bn254, LibsnarkReduction>::verify(
                 &vk,
                 &[
                     Fr::zero(),
@@ -123,7 +123,7 @@ pub fn execute(
             )?;
 
             let (index, new_root) =
-                TREE.insert(deps.storage, new_note.to_string(), &MiMCHasher(&mimc))?;
+                TREE.insert(deps.storage, new_note.to_string(), &PoseidonHasher(&hasher))?;
 
             is_valid.then_some(()).ok_or(ContractError::InvalidProof)?;
 
@@ -142,16 +142,22 @@ pub fn execute(
             proof,
             timeout,
         } => {
-            let mimc = mimc();
+            let hasher = poseidon_bn254();
 
             // Normalize swap argument and then calculate aux
             swap_argument.sender = String::new();
-            let aux = mimc.permute_non_feistel(to_field_elements::<Fr>(
-                &to_vec(&swap_argument)?
-                    .into_iter()
-                    .chain(to_vec(&timeout)?.into_iter())
-                    .collect::<Vec<_>>(),
-            ))[0];
+            let aux = (&to_vec(&swap_argument)
+                .expect("Failed to serialize swap args")
+                .into_iter()
+                .chain(
+                    to_vec(&timeout)
+                        .expect("Failed to serialize timeout")
+                        .into_iter(),
+                )
+                .collect::<Vec<_>>())
+                .to_field_elements()
+                .and_then(|e| PoseidonHash::crh(&hasher, &e).ok())
+                .expect("Failed to hash aux");
 
             if let Some(timeout) = timeout {
                 (env.block.time.seconds() <= timeout)
@@ -187,19 +193,20 @@ pub fn execute(
                 .then_some(())
                 .ok_or(ContractError::InvalidSwapDenom)?;
 
-            let diff_balance_root = mimc.permute_non_feistel(
-                assets
+            let diff_balance_root = PoseidonHash::crh(
+                &hasher,
+                &assets
                     .iter()
                     .map(|a| funds_map.get(a).copied().unwrap_or_default())
                     .collect::<Vec<_>>(),
-            )[0];
+            )?;
 
             let vk = VerifyingKey::<Bn254>::deserialize_uncompressed(
                 &MAIN_CIRCUIT_VK.load(deps.storage)?[..],
             )?;
-            let proof = Proof::deserialize(&base64::decode(&proof)?[..])?;
+            let proof = Proof::deserialize_compressed(&base64::decode(&proof)?[..])?;
             let nullifier_hash = Fr::from_le_bytes_mod_order(&base64::decode(&nullifier_hash)?);
-            let nullifier_normalized = nullifier_hash.into_repr().to_bytes_le();
+            let nullifier_normalized = nullifier_hash.into_bigint().to_bytes_le();
             NULLIFIER
                 .has(deps.storage, &nullifier_normalized)
                 .not()
@@ -208,12 +215,12 @@ pub fn execute(
             NULLIFIER.save(deps.storage, &nullifier_normalized, &())?;
 
             let tree_root = Fr::from_le_bytes_mod_order(&base64::decode(&root)?);
-            let tree_root_normalized = base64::encode(&tree_root.into_repr().to_bytes_le());
+            let tree_root_normalized = base64::encode(&tree_root.into_bigint().to_bytes_le());
             TREE.is_valid_root(deps.storage, &tree_root_normalized)?
                 .then_some(())
                 .ok_or(ContractError::InvalidRoot)?;
 
-            let is_valid = Groth16::verify(
+            let is_valid = Groth16::<Bn254, LibsnarkReduction>::verify(
                 &vk,
                 &[
                     aux,
@@ -227,7 +234,7 @@ pub fn execute(
             )?;
 
             let (index, new_root) =
-                TREE.insert(deps.storage, new_note.to_string(), &MiMCHasher(&mimc))?;
+                TREE.insert(deps.storage, new_note.to_string(), &PoseidonHasher(&hasher))?;
 
             is_valid.then_some(()).ok_or(ContractError::InvalidProof)?;
 
@@ -269,14 +276,14 @@ pub fn execute(
             proof,
         } => {
             let assets = ASSETS.load(deps.storage)?;
-            let mimc = mimc();
+            let hasher = poseidon_bn254();
             let vk = VerifyingKey::<Bn254>::deserialize_uncompressed(
                 &MAIN_CIRCUIT_VK.load(deps.storage)?[..],
             )?;
-            let proof = Proof::deserialize(&base64::decode(&proof)?[..])?;
+            let proof = Proof::deserialize_compressed(&base64::decode(&proof)?[..])?;
             let nullifier_hash = Fr::from_le_bytes_mod_order(&base64::decode(&nullifier_hash)?);
 
-            let nullifier_normalized = nullifier_hash.into_repr().to_bytes_le();
+            let nullifier_normalized = nullifier_hash.into_bigint().to_bytes_le();
             NULLIFIER
                 .has(deps.storage, &nullifier_normalized)
                 .not()
@@ -285,13 +292,14 @@ pub fn execute(
             NULLIFIER.save(deps.storage, &nullifier_normalized, &())?;
 
             let tree_root = Fr::from_le_bytes_mod_order(&base64::decode(&root)?);
-            let tree_root_normalized = base64::encode(&tree_root.into_repr().to_bytes_le());
+            let tree_root_normalized = base64::encode(&tree_root.into_bigint().to_bytes_le());
             TREE.is_valid_root(deps.storage, &tree_root_normalized)?
                 .then_some(())
                 .ok_or(ContractError::InvalidRoot)?;
 
-            let diff_balance_root = mimc.permute_non_feistel(
-                assets
+            let diff_balance_root = PoseidonHash::crh(
+                &hasher,
+                &assets
                     .iter()
                     .map(|a| {
                         withdrawn_assets
@@ -300,12 +308,12 @@ pub fn execute(
                             .unwrap_or_default()
                     })
                     .collect::<Vec<_>>(),
-            )[0];
+            )?;
             let blinding = Fr::from_le_bytes_mod_order(&base64::decode(&blinding)?);
             let address = Fr::from_le_bytes_mod_order(info.sender.as_bytes());
-            let identifier = mimc.permute_non_feistel(vec![address, blinding])[0];
+            let identifier = PoseidonHash::tto_crh(&hasher, address, blinding)?;
 
-            let is_valid = Groth16::verify(
+            let is_valid = Groth16::<Bn254, LibsnarkReduction>::verify(
                 &vk,
                 &[
                     Fr::zero(),
@@ -319,7 +327,7 @@ pub fn execute(
             )?;
 
             let (index, new_root) =
-                TREE.insert(deps.storage, new_note.to_string(), &MiMCHasher(&mimc))?;
+                TREE.insert(deps.storage, new_note.to_string(), &PoseidonHasher(&hasher))?;
 
             is_valid.then_some(()).ok_or(ContractError::InvalidProof)?;
 

@@ -5,17 +5,17 @@ mod withdraw;
 use std::error::Error;
 
 use ark_bn254::{Bn254, Fr};
-use ark_crypto_primitives::SNARK;
+use ark_crypto_primitives::{snark::SNARK, sponge::poseidon::PoseidonConfig};
 use ark_groth16::{Groth16, ProvingKey, VerifyingKey};
 use ark_serialize::CanonicalSerialize;
-use ark_std::{rand::rngs::StdRng, test_rng};
-use arkworks_mimc::{params::mimc_7_91_bn254::MIMC_7_91_BN254_PARAMS, MiMC, MiMCNonFeistelCRH};
 use circuits::{
-    merkle_tree::SparseMerkleTree, utils::mimc, MainCircuitBn254, N_ASSETS, TREE_DEPTH,
+    merkle_tree::SparseMerkleTree, poseidon::PoseidonHash, utils::poseidon_bn254, MainCircuitBn254,
+    N_ASSETS, TREE_DEPTH,
 };
 use cosmwasm_std::{Addr, Coin};
 use cw_multi_test::{App, ContractWrapper, Executor};
 use lazy_static::lazy_static;
+use rand::rngs::OsRng;
 
 use crate::{execute, instantiate, msg::InstantiateMsg, query};
 
@@ -28,15 +28,17 @@ lazy_static! {
     static ref ADMIN: Addr = Addr::unchecked("admin");
     static ref KEY: (ProvingKey<Bn254>, VerifyingKey<Bn254>) =
         Groth16::<Bn254>::circuit_specific_setup(
-            Circuit::empty_without_tree(&mimc()),
-            &mut test_rng(),
+            Circuit::empty_without_tree(&poseidon_bn254()),
+            &mut OsRng,
         )
         .expect("setup failed");
 }
 
 fn serialize_to_base64<T: CanonicalSerialize>(value: &T) -> String {
     let mut bytes = vec![];
-    value.serialize(&mut bytes).expect("failed to serialize");
+    value
+        .serialize_compressed(&mut bytes)
+        .expect("failed to serialize");
     base64::encode(bytes)
 }
 
@@ -44,9 +46,9 @@ fn init() -> Result<
     (
         App,
         Addr,
-        SparseMerkleTree<Fr, MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS>, TREE_DEPTH>,
-        MiMC<Fr, MIMC_7_91_BN254_PARAMS>,
-        StdRng,
+        SparseMerkleTree<Fr, PoseidonHash<Fr>, TREE_DEPTH>,
+        PoseidonConfig<Fr>,
+        OsRng,
     ),
     Box<dyn Error>,
 > {
@@ -61,8 +63,8 @@ fn init() -> Result<
     });
     let code = ContractWrapper::new(execute, instantiate, query);
     let code_id = app.store_code(Box::new(code));
-    let mimc = mimc();
-    let (_, tree) = Circuit::empty(&mimc);
+    let hasher = poseidon_bn254();
+    let (_, tree) = Circuit::empty(&hasher);
     let mut vk_bytes = vec![];
     KEY.1.serialize_uncompressed(&mut vk_bytes)?;
     let addr = app.instantiate_contract(
@@ -77,5 +79,5 @@ fn init() -> Result<
         Some(ADMIN.to_string()),
     )?;
 
-    Ok((app, addr, tree, mimc, test_rng()))
+    Ok((app, addr, tree, hasher, OsRng))
 }

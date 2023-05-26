@@ -1,11 +1,11 @@
 use std::{collections::BTreeMap, error::Error};
 
-use ark_bn254::Fr;
-use ark_crypto_primitives::SNARK;
+use ark_bn254::{Bn254, Fr};
+use ark_crypto_primitives::snark::SNARK;
 use ark_ff::PrimeField;
-use ark_groth16::Groth16;
+use ark_groth16::{r1cs_to_qap::LibsnarkReduction, Groth16};
 use ark_std::{UniformRand, Zero};
-use circuits::{merkle_tree::Path, N_ASSETS};
+use circuits::{merkle_tree::Path, poseidon::PoseidonHash, N_ASSETS};
 use cosmwasm_std::Coin;
 use cw_multi_test::Executor;
 
@@ -16,7 +16,7 @@ use crate::{
 
 #[test]
 fn deposit_first_time() -> Result<(), Box<dyn Error>> {
-    let (mut app, addr, mut tree, mimc, mut rng) = init()?;
+    let (mut app, addr, mut tree, hasher, mut rng) = init()?;
 
     let address = Fr::from_le_bytes_mod_order(USER_1.as_bytes());
     let nullifier = Fr::rand(&mut rng);
@@ -24,15 +24,16 @@ fn deposit_first_time() -> Result<(), Box<dyn Error>> {
 
     let uosmo_amount = 500_000;
     let new_balances = [uosmo_amount, 0, 0, 0, 0, 0, 0].map(Fr::from);
-    let new_balance_root = mimc.permute_non_feistel(new_balances.to_vec())[0];
-    let new_note = mimc.permute_non_feistel(
-        vec![
+
+    let new_balance_root = PoseidonHash::crh(&hasher, &new_balances)?;
+    let new_note = PoseidonHash::crh(
+        &hasher,
+        &[
             new_balance_root,
-            mimc.permute_non_feistel(vec![address, blinding])[0],
+            PoseidonHash::tto_crh(&hasher, address, blinding)?,
             nullifier,
-        ]
-        .to_vec(),
-    )[0];
+        ],
+    )?;
 
     let circuit = Circuit {
         address,
@@ -48,11 +49,11 @@ fn deposit_first_time() -> Result<(), Box<dyn Error>> {
         new_note,
         new_note_blinding: blinding,
         new_note_balances: new_balances,
-        parameters: mimc.clone(),
+        parameters: hasher.clone(),
         _hg: std::marker::PhantomData,
     };
 
-    let proof = Groth16::prove(&KEY.0, circuit, &mut rng)?;
+    let proof = Groth16::<Bn254, LibsnarkReduction>::prove(&KEY.0, circuit, &mut rng)?;
 
     let response = app.execute_contract(
         USER_1.clone(),
@@ -67,7 +68,7 @@ fn deposit_first_time() -> Result<(), Box<dyn Error>> {
         &[Coin::new(uosmo_amount, "uosmo")],
     )?;
 
-    tree.insert_batch(&BTreeMap::from([(0, new_note)]), &mimc)?;
+    tree.insert_batch(&BTreeMap::from([(0, new_note)]), &hasher)?;
 
     let attributes = &response.events[1].attributes;
     assert_eq!(attributes[1].value, "0", "Invalid leaf index");
@@ -93,7 +94,7 @@ fn deposit_first_time() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn deposit_subsequent_diff_asset() -> Result<(), Box<dyn Error>> {
-    let (mut app, addr, mut tree, mimc, mut rng) = init()?;
+    let (mut app, addr, mut tree, hasher, mut rng) = init()?;
 
     let address = Fr::from_le_bytes_mod_order(USER_1.as_bytes());
     let nullifier = Fr::rand(&mut rng);
@@ -101,10 +102,10 @@ fn deposit_subsequent_diff_asset() -> Result<(), Box<dyn Error>> {
 
     let uosmo_amount = 500_000;
     let balances = [uosmo_amount, 0, 0, 0, 0, 0, 0].map(Fr::from);
-    let balance_root = mimc.permute_non_feistel(balances.to_vec())[0];
-    let identifier = mimc.permute_non_feistel(vec![address, blinding])[0];
-    let note = mimc.permute_non_feistel(vec![balance_root, identifier, nullifier].to_vec())[0];
-    let nullifier_hash = mimc.permute_non_feistel(vec![note, nullifier])[0];
+    let balance_root = PoseidonHash::crh(&hasher, &balances)?;
+    let identifier = PoseidonHash::tto_crh(&hasher, address, blinding)?;
+    let note = PoseidonHash::crh(&hasher, &[balance_root, identifier, nullifier])?;
+    let nullifier_hash = PoseidonHash::tto_crh(&hasher, note, nullifier)?;
 
     app.execute_contract(
         USER_1.clone(),
@@ -114,7 +115,7 @@ fn deposit_subsequent_diff_asset() -> Result<(), Box<dyn Error>> {
             nullifier_hash: String::new(),
             identifier: String::new(),
             new_note: serialize_to_base64(&note),
-            proof: serialize_to_base64(&Groth16::prove(
+            proof: serialize_to_base64(&Groth16::<Bn254, LibsnarkReduction>::prove(
                 &KEY.0,
                 Circuit {
                     address,
@@ -130,7 +131,7 @@ fn deposit_subsequent_diff_asset() -> Result<(), Box<dyn Error>> {
                     new_note: note,
                     new_note_blinding: blinding,
                     new_note_balances: balances,
-                    parameters: mimc.clone(),
+                    parameters: hasher.clone(),
                     _hg: std::marker::PhantomData,
                 },
                 &mut rng,
@@ -139,22 +140,22 @@ fn deposit_subsequent_diff_asset() -> Result<(), Box<dyn Error>> {
         &[Coin::new(uosmo_amount, "uosmo")],
     )?;
 
-    tree.insert_batch(&BTreeMap::from([(0, note)]), &mimc)?;
+    tree.insert_batch(&BTreeMap::from([(0, note)]), &hasher)?;
 
     let uusdc_amount = 200_000;
     let new_balances = [uosmo_amount, 0, 0, uusdc_amount, 0, 0, 0].map(Fr::from);
     let diff_balances = [0, 0, 0, uusdc_amount, 0, 0, 0].map(Fr::from);
-    let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
+    let diff_balance_root = PoseidonHash::crh(&hasher, &diff_balances)?;
 
     let new_blinding = Fr::rand(&mut rng);
-    let new_note = mimc.permute_non_feistel(
-        vec![
-            mimc.permute_non_feistel(new_balances.to_vec())[0],
-            mimc.permute_non_feistel(vec![address, new_blinding])[0],
+    let new_note = PoseidonHash::crh(
+        &hasher,
+        &[
+            PoseidonHash::crh(&hasher, &new_balances)?,
+            PoseidonHash::tto_crh(&hasher, address, new_blinding)?,
             nullifier,
-        ]
-        .to_vec(),
-    )[0];
+        ],
+    )?;
 
     let response = app.execute_contract(
         USER_1.clone(),
@@ -164,7 +165,7 @@ fn deposit_subsequent_diff_asset() -> Result<(), Box<dyn Error>> {
             nullifier_hash: serialize_to_base64(&nullifier_hash),
             identifier: serialize_to_base64(&identifier),
             new_note: serialize_to_base64(&new_note),
-            proof: serialize_to_base64(&Groth16::prove(
+            proof: serialize_to_base64(&Groth16::<Bn254, LibsnarkReduction>::prove(
                 &KEY.0,
                 Circuit {
                     address,
@@ -180,7 +181,7 @@ fn deposit_subsequent_diff_asset() -> Result<(), Box<dyn Error>> {
                     new_note,
                     new_note_blinding: new_blinding,
                     new_note_balances: new_balances,
-                    parameters: mimc.clone(),
+                    parameters: hasher.clone(),
                     _hg: std::marker::PhantomData,
                 },
                 &mut rng,
@@ -189,7 +190,7 @@ fn deposit_subsequent_diff_asset() -> Result<(), Box<dyn Error>> {
         &[Coin::new(uusdc_amount, "uusdc")],
     )?;
 
-    tree.insert_batch(&BTreeMap::from([(1, new_note)]), &mimc)?;
+    tree.insert_batch(&BTreeMap::from([(1, new_note)]), &hasher)?;
 
     let attributes = &response.events[1].attributes;
     assert_eq!(attributes[1].value, "1", "Invalid leaf index");
@@ -215,7 +216,7 @@ fn deposit_subsequent_diff_asset() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn deposit_subsequent_same_asset() -> Result<(), Box<dyn Error>> {
-    let (mut app, addr, mut tree, mimc, mut rng) = init()?;
+    let (mut app, addr, mut tree, hasher, mut rng) = init()?;
 
     let address = Fr::from_le_bytes_mod_order(USER_1.as_bytes());
     let nullifier = Fr::rand(&mut rng);
@@ -223,10 +224,10 @@ fn deposit_subsequent_same_asset() -> Result<(), Box<dyn Error>> {
 
     let uosmo_amount = 500_000;
     let balances = [uosmo_amount, 0, 0, 0, 0, 0, 0].map(Fr::from);
-    let balance_root = mimc.permute_non_feistel(balances.to_vec())[0];
-    let identifier = mimc.permute_non_feistel(vec![address, blinding])[0];
-    let note = mimc.permute_non_feistel(vec![balance_root, identifier, nullifier].to_vec())[0];
-    let nullifier_hash = mimc.permute_non_feistel(vec![note, nullifier])[0];
+    let balance_root = PoseidonHash::crh(&hasher, &balances)?;
+    let identifier = PoseidonHash::tto_crh(&hasher, address, blinding)?;
+    let note = PoseidonHash::crh(&hasher, &[balance_root, identifier, nullifier])?;
+    let nullifier_hash = PoseidonHash::tto_crh(&hasher, note, nullifier)?;
 
     app.execute_contract(
         USER_1.clone(),
@@ -236,7 +237,7 @@ fn deposit_subsequent_same_asset() -> Result<(), Box<dyn Error>> {
             nullifier_hash: String::new(),
             identifier: String::new(),
             new_note: serialize_to_base64(&note),
-            proof: serialize_to_base64(&Groth16::prove(
+            proof: serialize_to_base64(&Groth16::<Bn254, LibsnarkReduction>::prove(
                 &KEY.0,
                 Circuit {
                     address,
@@ -252,7 +253,7 @@ fn deposit_subsequent_same_asset() -> Result<(), Box<dyn Error>> {
                     new_note: note,
                     new_note_blinding: blinding,
                     new_note_balances: balances,
-                    parameters: mimc.clone(),
+                    parameters: hasher.clone(),
                     _hg: std::marker::PhantomData,
                 },
                 &mut rng,
@@ -261,22 +262,22 @@ fn deposit_subsequent_same_asset() -> Result<(), Box<dyn Error>> {
         &[Coin::new(uosmo_amount, "uosmo")],
     )?;
 
-    tree.insert_batch(&BTreeMap::from([(0, note)]), &mimc)?;
+    tree.insert_batch(&BTreeMap::from([(0, note)]), &hasher)?;
 
     let new_uosmo_amount = 200_000;
     let new_balances = [uosmo_amount + new_uosmo_amount, 0, 0, 0, 0, 0, 0].map(Fr::from);
     let diff_balances = [new_uosmo_amount, 0, 0, 0, 0, 0, 0].map(Fr::from);
-    let diff_balance_root = mimc.permute_non_feistel(diff_balances.to_vec())[0];
+    let diff_balance_root = PoseidonHash::crh(&hasher, &diff_balances)?;
 
     let new_blinding = Fr::rand(&mut rng);
-    let new_note = mimc.permute_non_feistel(
-        vec![
-            mimc.permute_non_feistel(new_balances.to_vec())[0],
-            mimc.permute_non_feistel(vec![address, new_blinding])[0],
+    let new_note = PoseidonHash::crh(
+        &hasher,
+        &[
+            PoseidonHash::crh(&hasher, &new_balances)?,
+            PoseidonHash::tto_crh(&hasher, address, new_blinding)?,
             nullifier,
-        ]
-        .to_vec(),
-    )[0];
+        ],
+    )?;
 
     let response = app.execute_contract(
         USER_1.clone(),
@@ -286,7 +287,7 @@ fn deposit_subsequent_same_asset() -> Result<(), Box<dyn Error>> {
             nullifier_hash: serialize_to_base64(&nullifier_hash),
             identifier: serialize_to_base64(&identifier),
             new_note: serialize_to_base64(&new_note),
-            proof: serialize_to_base64(&Groth16::prove(
+            proof: serialize_to_base64(&Groth16::<Bn254, LibsnarkReduction>::prove(
                 &KEY.0,
                 Circuit {
                     address,
@@ -302,7 +303,7 @@ fn deposit_subsequent_same_asset() -> Result<(), Box<dyn Error>> {
                     new_note,
                     new_note_blinding: new_blinding,
                     new_note_balances: new_balances,
-                    parameters: mimc.clone(),
+                    parameters: hasher.clone(),
                     _hg: std::marker::PhantomData,
                 },
                 &mut rng,
@@ -311,7 +312,7 @@ fn deposit_subsequent_same_asset() -> Result<(), Box<dyn Error>> {
         &[Coin::new(new_uosmo_amount, "uosmo")],
     )?;
 
-    tree.insert_batch(&BTreeMap::from([(1, new_note)]), &mimc)?;
+    tree.insert_batch(&BTreeMap::from([(1, new_note)]), &hasher)?;
 
     let attributes = &response.events[1].attributes;
     assert_eq!(attributes[1].value, "1", "Invalid leaf index");

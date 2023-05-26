@@ -1,20 +1,25 @@
 use ark_bn254::Fr;
-use ark_crypto_primitives::crh::TwoToOneCRH;
+use ark_crypto_primitives::sponge::poseidon::PoseidonConfig;
 use ark_ff::{BigInteger, PrimeField};
-use arkworks_mimc::{params::mimc_7_91_bn254::MIMC_7_91_BN254_PARAMS, MiMC, MiMCNonFeistelCRH};
+use circuits::poseidon::PoseidonHash;
 use cw_merkle_tree::{Hasher, HasherError};
 
 #[derive(Debug, Clone)]
-pub struct MiMCHasher<'a>(pub &'a MiMC<Fr, MIMC_7_91_BN254_PARAMS>);
+pub struct PoseidonHasher<'a>(pub &'a PoseidonConfig<Fr>);
 
-impl<'a> Hasher<String> for MiMCHasher<'a> {
+impl<'a> Hasher<String> for PoseidonHasher<'a> {
     fn hash_two(&self, left: &String, right: &String) -> Result<String, HasherError> {
-        let hashed = <MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS> as TwoToOneCRH>::evaluate(
+        let hashed = PoseidonHash::tto_crh(
             &self.0,
-            &base64::decode(left).map_err(|_| HasherError::custom("left hash decode error"))?,
-            &base64::decode(right).map_err(|_| HasherError::custom("right hash decode error"))?,
+            Fr::from_le_bytes_mod_order(
+                &base64::decode(left).map_err(|_| HasherError::custom("left hash decode error"))?,
+            ),
+            Fr::from_le_bytes_mod_order(
+                &base64::decode(right)
+                    .map_err(|_| HasherError::custom("right hash decode error"))?,
+            ),
         )
         .map_err(|e| HasherError::Custom(e.to_string()))?;
-        Ok(base64::encode(hashed.into_repr().to_bytes_le()))
+        Ok(base64::encode(hashed.into_bigint().to_bytes_le()))
     }
 }

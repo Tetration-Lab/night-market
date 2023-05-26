@@ -45,6 +45,9 @@ pub enum ContractError {
 
     #[error("Only callable by this contract")]
     NotContract,
+
+    #[error("{0}")]
+    Custom(String),
 }
 
 impl From<SerializationError> for ContractError {
@@ -56,5 +59,11 @@ impl From<SerializationError> for ContractError {
 impl From<SynthesisError> for ContractError {
     fn from(value: SynthesisError) -> Self {
         Self::Serialization(value.to_string())
+    }
+}
+
+impl From<Box<dyn ark_std::error::Error>> for ContractError {
+    fn from(value: Box<dyn ark_std::error::Error>) -> Self {
+        Self::Custom(value.to_string())
     }
 }

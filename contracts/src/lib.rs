@@ -27,8 +27,7 @@ use cw_merkle_tree::MerkleTree;
 use cw_storage_plus::Bound;
 use error::ContractError;
 use hasher::PoseidonHasher;
-use msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
-use serde_json::json;
+use msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, NotesResponse, QueryMsg};
 use state::{ADMIN, ASSETS, LATEST_SWAP, MAIN_CIRCUIT_VK, NULLIFIER, TREE};
 
 #[entry_point]
@@ -382,15 +381,15 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<QueryResponse, Cont
                 .tree
                 .leafs
                 .range(deps.storage, bound.0, bound.1, bound.2)
-                .take(limit.unwrap_or(100))
+                .take(limit.unwrap_or(100) as usize)
                 .map(|e| -> Result<_, ContractError> { Ok(e?.1) })
                 .collect::<Result<Vec<_>, _>>()?;
             let latest_index = start_after.unwrap_or_default() + notes.len() as u64;
 
-            Ok(to_binary(&json!({
-                "notes": notes,
-                "latest_index": latest_index,
-            }))?)
+            Ok(to_binary(&NotesResponse {
+                notes,
+                latest_index,
+            })?)
         }
     }
 }

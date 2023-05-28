@@ -48,7 +48,7 @@ pub enum QueryMsg {
     Assets {},
     Root {},
     Notes {
-        limit: Option<usize>,
+        limit: Option<u64>,
         start_after: Option<u64>,
         is_ascending: Option<bool>,
     },
@@ -56,3 +56,9 @@ pub enum QueryMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MigrateMsg {}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct NotesResponse {
+    pub notes: Vec<String>,
+    pub latest_index: u64,
+}

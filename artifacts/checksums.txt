@@ -1,1 +1,1 @@
-8ca8877124764178ccd709ce5263e0d0ea71f336d44c8bedd41c6396cacb7830  contracts.wasm
+4536affb884cb2fad06f6b7b396f5ae55d6bd3d057b0125e34efa9472f48023b  contracts-aarch64.wasm

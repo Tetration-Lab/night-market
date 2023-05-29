@@ -148,6 +148,7 @@ impl Protocol {
             "root": serialize_to_hex(&root).expect("Failed to serialize root"),
             "nullifier_hash": serialize_to_hex(&old_note_nullifier_hash).expect("Failed to serialize nullifier hash"),
             "identifier": serialize_to_hex(&old_note_identifier).expect("Failed to serialize identifier"),
+            "new_note": serialize_to_hex(&new_note).expect("Failed to serialize new note"),
             "new_account": new_account.to_string(),
         }))
         .expect("Failed to serialize to js value")
@@ -278,6 +279,7 @@ impl Protocol {
             "root": serialize_to_hex(&root).expect("Failed to serialize root"),
             "nullifier_hash": serialize_to_hex(&old_note_nullifier_hash).expect("Failed to serialize nullifier hash"),
             "identifier": serialize_to_hex(&old_note_identifier).expect("Failed to serialize identifier"),
+            "new_note": serialize_to_hex(&new_note).expect("Failed to serialize new note"),
             "new_account": new_account.to_string(),
         }))
         .expect("Failed to serialize to js value")

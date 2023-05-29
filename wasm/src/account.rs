@@ -62,8 +62,18 @@ impl Account {
 
     #[wasm_bindgen]
     pub fn balance(&self) -> JsValue {
-        to_value(&json!(self.balance.0.map(|e| e.to_string())))
-            .expect("Failed to serialize to js value")
+        to_value(&json!(self
+            .balance
+            .0
+            .into_iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()))
+        .expect("Failed to serialize to js value")
+    }
+
+    #[wasm_bindgen]
+    pub fn blinding(&self) -> String {
+        serialize_to_hex(&self.latest_blinding).expect("Failed to serialize blinding")
     }
 }
 

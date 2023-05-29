@@ -46,21 +46,21 @@ export class Protocol {
 /**
 * @param {Uint8Array} pk
 * @param {string} account
-* @param {SparseMerkleTree} tree
+* @param {any} tree_notes
 * @param {any} diffs
 * @returns {any}
 */
-  static deposit_withdraw(pk: Uint8Array, account: string, tree: SparseMerkleTree, diffs: any): any;
+  static deposit_withdraw(pk: Uint8Array, account: string, tree_notes: any, diffs: any): any;
 /**
 * @param {Uint8Array} pk
 * @param {string} account
-* @param {SparseMerkleTree} tree
+* @param {any} tree_notes
 * @param {any} diffs
 * @param {any} swap_argument
 * @param {bigint | undefined} timeout
 * @returns {any}
 */
-  static swap(pk: Uint8Array, account: string, tree: SparseMerkleTree, diffs: any, swap_argument: any, timeout?: bigint): any;
+  static swap(pk: Uint8Array, account: string, tree_notes: any, diffs: any, swap_argument: any, timeout?: bigint): any;
 }
 /**
 */

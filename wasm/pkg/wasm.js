@@ -200,13 +200,6 @@ function passArray8ToWasm0(arg, malloc) {
     WASM_VECTOR_LEN = arg.length;
     return ptr;
 }
-
-function _assertClass(instance, klass) {
-    if (!(instance instanceof klass)) {
-        throw new Error(`expected instance of ${klass.name}`);
-    }
-    return instance.ptr;
-}
 /**
 */
 export function init() {
@@ -357,37 +350,33 @@ export class Protocol {
     /**
     * @param {Uint8Array} pk
     * @param {string} account
-    * @param {SparseMerkleTree} tree
+    * @param {any} tree_notes
     * @param {any} diffs
     * @returns {any}
     */
-    static deposit_withdraw(pk, account, tree, diffs) {
+    static deposit_withdraw(pk, account, tree_notes, diffs) {
         const ptr0 = passArray8ToWasm0(pk, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(account, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        _assertClass(tree, SparseMerkleTree);
-        var ptr2 = tree.__destroy_into_raw();
-        const ret = wasm.protocol_deposit_withdraw(ptr0, len0, ptr1, len1, ptr2, addHeapObject(diffs));
+        const ret = wasm.protocol_deposit_withdraw(ptr0, len0, ptr1, len1, addHeapObject(tree_notes), addHeapObject(diffs));
         return takeObject(ret);
     }
     /**
     * @param {Uint8Array} pk
     * @param {string} account
-    * @param {SparseMerkleTree} tree
+    * @param {any} tree_notes
     * @param {any} diffs
     * @param {any} swap_argument
     * @param {bigint | undefined} timeout
     * @returns {any}
     */
-    static swap(pk, account, tree, diffs, swap_argument, timeout) {
+    static swap(pk, account, tree_notes, diffs, swap_argument, timeout) {
         const ptr0 = passArray8ToWasm0(pk, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(account, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        _assertClass(tree, SparseMerkleTree);
-        var ptr2 = tree.__destroy_into_raw();
-        const ret = wasm.protocol_swap(ptr0, len0, ptr1, len1, ptr2, addHeapObject(diffs), addHeapObject(swap_argument), !isLikeNone(timeout), isLikeNone(timeout) ? BigInt(0) : timeout);
+        const ret = wasm.protocol_swap(ptr0, len0, ptr1, len1, addHeapObject(tree_notes), addHeapObject(diffs), addHeapObject(swap_argument), !isLikeNone(timeout), isLikeNone(timeout) ? BigInt(0) : timeout);
         return takeObject(ret);
     }
 }

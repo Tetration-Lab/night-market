@@ -43,7 +43,7 @@ impl Protocol {
     pub fn deposit_withdraw(
         pk: &[u8],
         account: &str,
-        tree: SparseMerkleTree,
+        tree_notes: JsValue,
         diffs: JsValue,
     ) -> JsValue {
         let hash = poseidon_bn254();
@@ -51,6 +51,9 @@ impl Protocol {
         // Deserialize diffs
         let diffs =
             from_value::<Vec<AssetDiff>>(diffs).expect("Failed to deserialize balance diffs");
+
+        let mut tree = SparseMerkleTree::new();
+        tree.insert_batch(tree_notes);
 
         // Update account balance and blinding
         let account = Account::from_string(account);
@@ -151,7 +154,7 @@ impl Protocol {
     pub fn swap(
         pk: &[u8],
         account: &str,
-        tree: SparseMerkleTree,
+        tree_notes: JsValue,
         diffs: JsValue,
         swap_argument: JsValue,
         timeout: Option<u64>,
@@ -178,6 +181,9 @@ impl Protocol {
         // Deserialize diffs
         let diffs =
             from_value::<Vec<AssetDiff>>(diffs).expect("Failed to deserialize balance diffs");
+
+        let mut tree = SparseMerkleTree::new();
+        tree.insert_batch(tree_notes);
 
         // Update account balance and blinding
         let account = Account::from_string(account);

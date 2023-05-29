@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct InstantiateMsg {
     pub assets: [String; N_ASSETS],
-    pub main_circuit_vk: Vec<u8>,
+    pub main_circuit_vk: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

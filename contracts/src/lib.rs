@@ -41,7 +41,7 @@ pub fn instantiate(
 
     ADMIN.set(deps.branch(), Some(info.sender))?;
     ASSETS.save(deps.storage, &msg.assets.map(|e| e.to_lowercase()))?;
-    MAIN_CIRCUIT_VK.save(deps.storage, &msg.main_circuit_vk)?;
+    MAIN_CIRCUIT_VK.save(deps.storage, &base64::decode(msg.main_circuit_vk)?)?;
     TREE.init(
         deps.storage,
         TREE_DEPTH as u8,

@@ -72,7 +72,7 @@ fn init() -> Result<
         ADMIN.clone(),
         &InstantiateMsg {
             assets: ASSETS.map(String::from),
-            main_circuit_vk: vk_bytes,
+            main_circuit_vk: base64::encode(vk_bytes),
         },
         &[],
         "main",

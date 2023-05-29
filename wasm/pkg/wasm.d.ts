@@ -4,15 +4,6 @@
 */
 export function init(): void;
 /**
-* @param {number} num_threads
-* @returns {Promise<any>}
-*/
-export function initThreadPool(num_threads: number): Promise<any>;
-/**
-* @param {number} receiver
-*/
-export function wbg_rayon_start_worker(receiver: number): void;
-/**
 */
 export class Account {
   free(): void;
@@ -89,26 +80,14 @@ export class SparseMerkleTree {
 */
   latest_index: number;
 }
-/**
-*/
-export class wbg_rayon_PoolBuilder {
-  free(): void;
-/**
-* @returns {number}
-*/
-  numThreads(): number;
-/**
-* @returns {number}
-*/
-  receiver(): number;
-/**
-*/
-  build(): void;
-}
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
+  readonly protocol_deposit_withdraw: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly protocol_swap: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+  readonly __wbg_protocol_free: (a: number) => void;
+  readonly init: () => void;
   readonly __wbg_sparsemerkletree_free: (a: number) => void;
   readonly __wbg_get_sparsemerkletree_latest_index: (a: number) => number;
   readonly __wbg_set_sparsemerkletree_latest_index: (a: number, b: number) => void;
@@ -124,16 +103,6 @@ export interface InitOutput {
   readonly account_updateIndex: (a: number, b: number, c: number) => void;
   readonly account_updateIndexFromString: (a: number, b: number, c: number, d: number) => void;
   readonly account_balance: (a: number) => number;
-  readonly protocol_deposit_withdraw: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly protocol_swap: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
-  readonly __wbg_protocol_free: (a: number) => void;
-  readonly init: () => void;
-  readonly __wbg_wbg_rayon_poolbuilder_free: (a: number) => void;
-  readonly wbg_rayon_poolbuilder_numThreads: (a: number) => number;
-  readonly wbg_rayon_poolbuilder_receiver: (a: number) => number;
-  readonly wbg_rayon_poolbuilder_build: (a: number) => void;
-  readonly wbg_rayon_start_worker: (a: number) => void;
-  readonly initThreadPool: (a: number) => number;
   readonly interface_version_8: () => void;
   readonly allocate: (a: number) => number;
   readonly deallocate: (a: number) => void;

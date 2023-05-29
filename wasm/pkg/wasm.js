@@ -367,7 +367,8 @@ export class Protocol {
         const ptr1 = passStringToWasm0(account, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
         _assertClass(tree, SparseMerkleTree);
-        const ret = wasm.protocol_deposit_withdraw(ptr0, len0, ptr1, len1, tree.__wbg_ptr, addHeapObject(diffs));
+        var ptr2 = tree.__destroy_into_raw();
+        const ret = wasm.protocol_deposit_withdraw(ptr0, len0, ptr1, len1, ptr2, addHeapObject(diffs));
         return takeObject(ret);
     }
     /**
@@ -385,7 +386,8 @@ export class Protocol {
         const ptr1 = passStringToWasm0(account, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
         _assertClass(tree, SparseMerkleTree);
-        const ret = wasm.protocol_swap(ptr0, len0, ptr1, len1, tree.__wbg_ptr, addHeapObject(diffs), addHeapObject(swap_argument), !isLikeNone(timeout), isLikeNone(timeout) ? BigInt(0) : timeout);
+        var ptr2 = tree.__destroy_into_raw();
+        const ret = wasm.protocol_swap(ptr0, len0, ptr1, len1, ptr2, addHeapObject(diffs), addHeapObject(swap_argument), !isLikeNone(timeout), isLikeNone(timeout) ? BigInt(0) : timeout);
         return takeObject(ret);
     }
 }

@@ -43,7 +43,7 @@ impl Protocol {
     pub fn deposit_withdraw(
         pk: &[u8],
         account: &str,
-        tree: &SparseMerkleTree,
+        tree: SparseMerkleTree,
         diffs: JsValue,
     ) -> JsValue {
         let hash = poseidon_bn254();
@@ -151,7 +151,7 @@ impl Protocol {
     pub fn swap(
         pk: &[u8],
         account: &str,
-        tree: &SparseMerkleTree,
+        tree: SparseMerkleTree,
         diffs: JsValue,
         swap_argument: JsValue,
         timeout: Option<u64>,

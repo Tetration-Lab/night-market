@@ -1,7 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
-export function protocol_deposit_withdraw(a: number, b: number, c: number, d: number, e: number): number;
-export function protocol_swap(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number): number;
+export function protocol_deposit_withdraw(a: number, b: number, c: number, d: number, e: number, f: number): number;
+export function protocol_swap(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number): number;
 export function __wbg_protocol_free(a: number): void;
 export function init(): void;
 export function __wbg_sparsemerkletree_free(a: number): void;

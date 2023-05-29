@@ -334,7 +334,7 @@ export class Account {
     /**
     * @returns {any}
     */
-    get balance() {
+    balance() {
         const ret = wasm.account_balance(this.__wbg_ptr);
         return takeObject(ret);
     }
@@ -356,7 +356,7 @@ export class Protocol {
     }
     /**
     * @param {Uint8Array} pk
-    * @param {Account} account
+    * @param {string} account
     * @param {SparseMerkleTree} tree
     * @param {any} diffs
     * @returns {any}
@@ -364,14 +364,15 @@ export class Protocol {
     static deposit_withdraw(pk, account, tree, diffs) {
         const ptr0 = passArray8ToWasm0(pk, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        _assertClass(account, Account);
+        const ptr1 = passStringToWasm0(account, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
         _assertClass(tree, SparseMerkleTree);
-        const ret = wasm.protocol_deposit_withdraw(ptr0, len0, account.__wbg_ptr, tree.__wbg_ptr, addHeapObject(diffs));
+        const ret = wasm.protocol_deposit_withdraw(ptr0, len0, ptr1, len1, tree.__wbg_ptr, addHeapObject(diffs));
         return takeObject(ret);
     }
     /**
     * @param {Uint8Array} pk
-    * @param {Account} account
+    * @param {string} account
     * @param {SparseMerkleTree} tree
     * @param {any} diffs
     * @param {any} swap_argument
@@ -381,9 +382,10 @@ export class Protocol {
     static swap(pk, account, tree, diffs, swap_argument, timeout) {
         const ptr0 = passArray8ToWasm0(pk, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        _assertClass(account, Account);
+        const ptr1 = passStringToWasm0(account, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
         _assertClass(tree, SparseMerkleTree);
-        const ret = wasm.protocol_swap(ptr0, len0, account.__wbg_ptr, tree.__wbg_ptr, addHeapObject(diffs), addHeapObject(swap_argument), !isLikeNone(timeout), isLikeNone(timeout) ? BigInt(0) : timeout);
+        const ret = wasm.protocol_swap(ptr0, len0, ptr1, len1, tree.__wbg_ptr, addHeapObject(diffs), addHeapObject(swap_argument), !isLikeNone(timeout), isLikeNone(timeout) ? BigInt(0) : timeout);
         return takeObject(ret);
     }
 }

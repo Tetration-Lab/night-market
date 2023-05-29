@@ -58,7 +58,7 @@ impl Account {
         account.to_string()
     }
 
-    #[wasm_bindgen(getter)]
+    #[wasm_bindgen]
     pub fn balance(&self) -> JsValue {
         to_value(&json!(self.balance.0.map(|e| e.to_string())))
             .expect("Failed to serialize to js value")

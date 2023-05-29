@@ -42,7 +42,7 @@ impl Protocol {
     #[wasm_bindgen]
     pub fn deposit_withdraw(
         pk: &[u8],
-        account: &Account,
+        account: &str,
         tree: &SparseMerkleTree,
         diffs: JsValue,
     ) -> JsValue {
@@ -53,7 +53,8 @@ impl Protocol {
             from_value::<Vec<AssetDiff>>(diffs).expect("Failed to deserialize balance diffs");
 
         // Update account balance and blinding
-        let mut new_account = *account;
+        let account = Account::from_string(account);
+        let mut new_account = *&account;
         new_account.update_balance(&diffs);
         new_account.randomize_blinding();
         new_account.update_index(Some(tree.latest_index));
@@ -149,7 +150,7 @@ impl Protocol {
     #[wasm_bindgen]
     pub fn swap(
         pk: &[u8],
-        account: &Account,
+        account: &str,
         tree: &SparseMerkleTree,
         diffs: JsValue,
         swap_argument: JsValue,
@@ -179,7 +180,8 @@ impl Protocol {
             from_value::<Vec<AssetDiff>>(diffs).expect("Failed to deserialize balance diffs");
 
         // Update account balance and blinding
-        let mut new_account = *account;
+        let account = Account::from_string(account);
+        let mut new_account = *&account;
         new_account.update_balance(&diffs);
         new_account.randomize_blinding();
         new_account.update_index(Some(tree.latest_index));

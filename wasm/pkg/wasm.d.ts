@@ -32,8 +32,9 @@ export class Account {
 */
   static updateIndexFromString(account: string, new_index: number): string;
 /**
+* @returns {any}
 */
-  readonly balance: any;
+  balance(): any;
 /**
 */
   index?: number;
@@ -44,22 +45,22 @@ export class Protocol {
   free(): void;
 /**
 * @param {Uint8Array} pk
-* @param {Account} account
+* @param {string} account
 * @param {SparseMerkleTree} tree
 * @param {any} diffs
 * @returns {any}
 */
-  static deposit_withdraw(pk: Uint8Array, account: Account, tree: SparseMerkleTree, diffs: any): any;
+  static deposit_withdraw(pk: Uint8Array, account: string, tree: SparseMerkleTree, diffs: any): any;
 /**
 * @param {Uint8Array} pk
-* @param {Account} account
+* @param {string} account
 * @param {SparseMerkleTree} tree
 * @param {any} diffs
 * @param {any} swap_argument
 * @param {bigint | undefined} timeout
 * @returns {any}
 */
-  static swap(pk: Uint8Array, account: Account, tree: SparseMerkleTree, diffs: any, swap_argument: any, timeout?: bigint): any;
+  static swap(pk: Uint8Array, account: string, tree: SparseMerkleTree, diffs: any, swap_argument: any, timeout?: bigint): any;
 }
 /**
 */
@@ -84,8 +85,8 @@ export class SparseMerkleTree {
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
-  readonly protocol_deposit_withdraw: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly protocol_swap: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+  readonly protocol_deposit_withdraw: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly protocol_swap: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => number;
   readonly __wbg_protocol_free: (a: number) => void;
   readonly init: () => void;
   readonly __wbg_sparsemerkletree_free: (a: number) => void;

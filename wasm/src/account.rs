@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use ark_bn254::Fr;
 use ark_ff::PrimeField;
 use ark_serialize::{
@@ -87,9 +89,10 @@ impl Account {
 
     pub fn update_balance(&mut self, diffs: &[AssetDiff]) {
         for diff in diffs {
+            let amount = u128::from_str(&diff.amount).expect("Failed to parse amount");
             match diff.is_add {
-                true => self.balance.0[diff.asset_index] += diff.amount,
-                false => self.balance.0[diff.asset_index] -= diff.amount,
+                true => self.balance.0[diff.asset_index] += amount,
+                false => self.balance.0[diff.asset_index] -= amount,
             }
         }
     }

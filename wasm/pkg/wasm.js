@@ -528,10 +528,6 @@ function __wbg_get_imports() {
         const ret = BigInt.asUintN(64, arg0);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_shr = function(arg0, arg1) {
-        const ret = getObject(arg0) >> getObject(arg1);
-        return addHeapObject(ret);
-    };
     imports.wbg.__wbindgen_jsval_eq = function(arg0, arg1) {
         const ret = getObject(arg0) === getObject(arg1);
         return ret;

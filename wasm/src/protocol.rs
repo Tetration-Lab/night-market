@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use ark_bn254::{Bn254, Fr};
 use ark_crypto_primitives::snark::SNARK;
 use ark_ff::ToConstraintField;
@@ -17,18 +19,19 @@ use wasm_bindgen::prelude::*;
 
 use crate::{account::Account, smt::SparseMerkleTree, utils::serialize_to_hex};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AssetDiff {
     pub asset_index: usize,
     pub is_add: bool,
-    pub amount: u128,
+    pub amount: String,
 }
 
 impl AssetDiff {
     pub fn balances(diffs: &[Self]) -> [Fr; N_ASSETS] {
         let mut balances = [Fr::zero(); N_ASSETS];
         for diff in diffs {
-            balances[diff.asset_index] = Fr::from(diff.amount);
+            balances[diff.asset_index] =
+                Fr::from(u128::from_str(&diff.amount).expect("Failed to parse amount"));
         }
         balances
     }

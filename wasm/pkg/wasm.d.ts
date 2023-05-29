@@ -42,6 +42,9 @@ export class Account {
   static updateIndexFromString(account: string, new_index: number): string;
 /**
 */
+  readonly balance: any;
+/**
+*/
   index?: number;
 }
 /**
@@ -120,10 +123,11 @@ export interface InitOutput {
   readonly account_toString: (a: number, b: number) => void;
   readonly account_updateIndex: (a: number, b: number, c: number) => void;
   readonly account_updateIndexFromString: (a: number, b: number, c: number, d: number) => void;
+  readonly account_balance: (a: number) => number;
   readonly protocol_deposit_withdraw: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly protocol_swap: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
-  readonly init: () => void;
   readonly __wbg_protocol_free: (a: number) => void;
+  readonly init: () => void;
   readonly __wbg_wbg_rayon_poolbuilder_free: (a: number) => void;
   readonly wbg_rayon_poolbuilder_numThreads: (a: number) => number;
   readonly wbg_rayon_poolbuilder_receiver: (a: number) => number;

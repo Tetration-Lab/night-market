@@ -6,6 +6,8 @@ use ark_serialize::{
 use ark_std::{UniformRand, Zero};
 use circuits::N_ASSETS;
 use rand::rngs::OsRng;
+use serde_json::json;
+use serde_wasm_bindgen::to_value;
 use wasm_bindgen::prelude::*;
 
 use crate::{protocol::AssetDiff, utils::serialize_to_hex};
@@ -54,6 +56,12 @@ impl Account {
         let mut account = Self::from_string(account);
         account.index = Some(new_index);
         account.to_string()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn balance(&self) -> JsValue {
+        to_value(&json!(self.balance.0.map(|e| e.to_string())))
+            .expect("Failed to serialize to js value")
     }
 }
 

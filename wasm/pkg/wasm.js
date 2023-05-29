@@ -349,6 +349,13 @@ export class Account {
             wasm.__wbindgen_free(deferred2_0, deferred2_1);
         }
     }
+    /**
+    * @returns {any}
+    */
+    get balance() {
+        const ret = wasm.account_balance(this.__wbg_ptr);
+        return takeObject(ret);
+    }
 }
 /**
 */

@@ -391,6 +391,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<QueryResponse, Cont
                 latest_index,
             })?)
         }
+        QueryMsg::NullifierUsed { nullifier_hash } => Ok(to_binary(
+            &NULLIFIER.has(deps.storage, &base64::decode(&nullifier_hash)?),
+        )?),
     }
 }
 

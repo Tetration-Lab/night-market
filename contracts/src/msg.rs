@@ -52,6 +52,9 @@ pub enum QueryMsg {
         start_after: Option<u64>,
         is_ascending: Option<bool>,
     },
+    NullifierUsed {
+        nullifier_hash: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

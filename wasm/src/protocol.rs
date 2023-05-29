@@ -117,7 +117,7 @@ impl Protocol {
         // Generate proof
         let proof = {
             let proof = Groth16::<Bn254>::prove(
-                &ProvingKey::deserialize_uncompressed(pk)
+                &ProvingKey::deserialize_uncompressed_unchecked(pk)
                     .expect("Failed to deserialize proving key"),
                 MainCircuitBn254::<{ N_ASSETS }, { TREE_DEPTH }> {
                     address: account.address,
@@ -248,7 +248,7 @@ impl Protocol {
         // Generate proof
         let proof = {
             let proof = Groth16::<Bn254>::prove(
-                &ProvingKey::deserialize_uncompressed(pk)
+                &ProvingKey::deserialize_uncompressed_unchecked(pk)
                     .expect("Failed to deserialize proving key"),
                 MainCircuitBn254::<{ N_ASSETS }, { TREE_DEPTH }> {
                     address: account.address,

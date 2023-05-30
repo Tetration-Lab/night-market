@@ -197,17 +197,17 @@ function debugString(val) {
     // TODO we could test for more things here, like `Set`s and `Map`s.
     return className;
 }
-/**
-*/
-export function init() {
-    wasm.init();
-}
 
 function passArray8ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 1) >>> 0;
     getUint8Memory0().set(arg, ptr / 1);
     WASM_VECTOR_LEN = arg.length;
     return ptr;
+}
+/**
+*/
+export function init() {
+    wasm.init();
 }
 
 function handleError(f, args) {
@@ -366,6 +366,24 @@ export class Protocol {
     }
     /**
     * @param {Uint8Array} pk
+    * @param {Uint8Array} vk
+    * @param {string} account
+    * @param {any} tree_notes
+    * @param {any} diffs
+    * @returns {any}
+    */
+    static deposit_withdraw_with_check(pk, vk, account, tree_notes, diffs) {
+        const ptr0 = passArray8ToWasm0(pk, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArray8ToWasm0(vk, wasm.__wbindgen_malloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(account, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.protocol_deposit_withdraw_with_check(ptr0, len0, ptr1, len1, ptr2, len2, addHeapObject(tree_notes), addHeapObject(diffs));
+        return takeObject(ret);
+    }
+    /**
+    * @param {Uint8Array} pk
     * @param {string} account
     * @param {any} tree_notes
     * @param {any} diffs
@@ -500,6 +518,10 @@ async function __wbg_load(module, imports) {
 function __wbg_get_imports() {
     const imports = {};
     imports.wbg = {};
+    imports.wbg.__wbindgen_is_string = function(arg0) {
+        const ret = typeof(getObject(arg0)) === 'string';
+        return ret;
+    };
     imports.wbg.__wbindgen_object_drop_ref = function(arg0) {
         takeObject(arg0);
     };
@@ -514,10 +536,6 @@ function __wbg_get_imports() {
         var len1 = WASM_VECTOR_LEN;
         getInt32Memory0()[arg0 / 4 + 1] = len1;
         getInt32Memory0()[arg0 / 4 + 0] = ptr1;
-    };
-    imports.wbg.__wbindgen_is_string = function(arg0) {
-        const ret = typeof(getObject(arg0)) === 'string';
-        return ret;
     };
     imports.wbg.__wbindgen_boolean_get = function(arg0) {
         const v = getObject(arg0);

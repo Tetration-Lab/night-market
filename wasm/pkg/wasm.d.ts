@@ -50,6 +50,15 @@ export class Protocol {
   free(): void;
 /**
 * @param {Uint8Array} pk
+* @param {Uint8Array} vk
+* @param {string} account
+* @param {any} tree_notes
+* @param {any} diffs
+* @returns {any}
+*/
+  static deposit_withdraw_with_check(pk: Uint8Array, vk: Uint8Array, account: string, tree_notes: any, diffs: any): any;
+/**
+* @param {Uint8Array} pk
 * @param {string} account
 * @param {any} tree_notes
 * @param {any} diffs
@@ -91,6 +100,10 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
+  readonly protocol_deposit_withdraw_with_check: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+  readonly protocol_deposit_withdraw: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly protocol_swap: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => number;
+  readonly __wbg_protocol_free: (a: number) => void;
   readonly init: () => void;
   readonly __wbg_sparsemerkletree_free: (a: number) => void;
   readonly __wbg_get_sparsemerkletree_latest_index: (a: number) => number;
@@ -98,9 +111,6 @@ export interface InitOutput {
   readonly sparsemerkletree_new: () => number;
   readonly sparsemerkletree_root: (a: number, b: number) => void;
   readonly sparsemerkletree_insert_batch: (a: number, b: number) => void;
-  readonly protocol_deposit_withdraw: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly protocol_swap: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => number;
-  readonly __wbg_protocol_free: (a: number) => void;
   readonly __wbg_account_free: (a: number) => void;
   readonly account__new: (a: number, b: number) => number;
   readonly account_fromString: (a: number, b: number) => number;

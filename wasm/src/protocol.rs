@@ -17,7 +17,7 @@ use serde_json::{json, to_vec};
 use serde_wasm_bindgen::{from_value, to_value};
 use wasm_bindgen::prelude::*;
 
-use crate::{account::Account, smt::SparseMerkleTree, utils::serialize_to_hex};
+use crate::{account::Account, log, smt::SparseMerkleTree, utils::serialize_to_hex};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AssetDiff {
@@ -63,7 +63,7 @@ impl Protocol {
         let mut new_account = *&account;
         new_account.update_balance(&diffs);
         new_account.randomize_blinding();
-        new_account.update_index(Some(tree.latest_index as u64));
+        new_account.update_index(Some(tree.latest_index as u32));
 
         // Calculate diff balances and diff balance root
         let diff_balances = AssetDiff::balances(&diffs);
@@ -191,7 +191,7 @@ impl Protocol {
         let mut new_account = *&account;
         new_account.update_balance(&diffs);
         new_account.randomize_blinding();
-        new_account.update_index(Some(tree.latest_index as u64));
+        new_account.update_index(Some(tree.latest_index as u32));
 
         // Calculate diff balances and diff balance root
         let diff_balances = AssetDiff::balances(&diffs);
@@ -216,6 +216,7 @@ impl Protocol {
         .expect("Failed to hash old note");
 
         // Calculate old note path and old note nullifier hash
+        log(&format!("Index {:?}", account.index));
         let (merkle_path, old_note_nullifier_hash, root) = match account.index {
             Some(i) => (
                 tree.tree.generate_membership_proof(i as u64),
@@ -225,6 +226,12 @@ impl Protocol {
             ),
             None => (Path::empty(), Fr::zero(), Fr::zero()),
         };
+        log(&format!("Path {:?}", merkle_path));
+        log(&format!(
+            "Old not nullifier hash {:?}",
+            old_note_nullifier_hash
+        ));
+        log(&format!("Root {:?}", root));
 
         // Calculate new note and new note nullifier hash
         let new_note_blinding = new_account.latest_blinding;

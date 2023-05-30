@@ -280,14 +280,14 @@ export class Account {
         }
     }
     /**
-    * @param {bigint | undefined} new_index
+    * @param {number | undefined} new_index
     */
     updateIndex(new_index) {
-        wasm.account_updateIndex(this.__wbg_ptr, !isLikeNone(new_index), isLikeNone(new_index) ? BigInt(0) : new_index);
+        wasm.account_updateIndex(this.__wbg_ptr, !isLikeNone(new_index), isLikeNone(new_index) ? 0 : new_index);
     }
     /**
     * @param {string} account
-    * @param {bigint} new_index
+    * @param {number} new_index
     * @returns {string}
     */
     static updateIndexFromString(account, new_index) {
@@ -335,15 +335,15 @@ export class Account {
         }
     }
     /**
-    * @returns {bigint | undefined}
+    * @returns {number | undefined}
     */
     index() {
         try {
             const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
             wasm.account_index(retptr, this.__wbg_ptr);
             var r0 = getInt32Memory0()[retptr / 4 + 0];
-            var r2 = getBigInt64Memory0()[retptr / 8 + 1];
-            return r0 === 0 ? undefined : BigInt.asUintN(64, r2);
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            return r0 === 0 ? undefined : r1 >>> 0;
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
         }
@@ -519,10 +519,8 @@ function __wbg_get_imports() {
         const ret = typeof(getObject(arg0)) === 'string';
         return ret;
     };
-    imports.wbg.__wbindgen_boolean_get = function(arg0) {
-        const v = getObject(arg0);
-        const ret = typeof(v) === 'boolean' ? (v ? 1 : 0) : 2;
-        return ret;
+    imports.wbg.__wbg_log_12af4e1f5b304c40 = function(arg0, arg1) {
+        console.log(getStringFromWasm0(arg0, arg1));
     };
     imports.wbg.__wbindgen_is_object = function(arg0) {
         const val = getObject(arg0);
@@ -535,6 +533,11 @@ function __wbg_get_imports() {
     };
     imports.wbg.__wbindgen_in = function(arg0, arg1) {
         const ret = getObject(arg0) in getObject(arg1);
+        return ret;
+    };
+    imports.wbg.__wbindgen_boolean_get = function(arg0) {
+        const v = getObject(arg0);
+        const ret = typeof(v) === 'boolean' ? (v ? 1 : 0) : 2;
         return ret;
     };
     imports.wbg.__wbindgen_is_bigint = function(arg0) {

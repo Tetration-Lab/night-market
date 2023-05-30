@@ -29,7 +29,7 @@ pub struct Account {
     #[wasm_bindgen(skip)]
     pub address: Fr,
     #[wasm_bindgen(skip)]
-    pub index: Option<u64>,
+    pub index: Option<u32>,
 }
 
 #[wasm_bindgen]
@@ -50,12 +50,12 @@ impl Account {
     }
 
     #[wasm_bindgen(js_name = updateIndex)]
-    pub fn update_index(&mut self, new_index: Option<u64>) {
+    pub fn update_index(&mut self, new_index: Option<u32>) {
         self.index = new_index;
     }
 
     #[wasm_bindgen(js_name = updateIndexFromString)]
-    pub fn update_account_index(account: &str, new_index: u64) -> String {
+    pub fn update_account_index(account: &str, new_index: u32) -> String {
         let mut account = Self::from_string(account);
         account.index = Some(new_index);
         account.to_string()
@@ -78,7 +78,7 @@ impl Account {
     }
 
     #[wasm_bindgen]
-    pub fn index(&self) -> Option<u64> {
+    pub fn index(&self) -> Option<u32> {
         self.index
     }
 }
@@ -125,17 +125,24 @@ impl Valid for Asset {
 }
 
 impl CanonicalSerialize for Asset {
-    fn serialized_size(&self, compress: ark_serialize::Compress) -> usize {
+    fn serialized_size(&self, _compress: ark_serialize::Compress) -> usize {
         16 * N_ASSETS
     }
 
     fn serialize_with_mode<W: Write>(
         &self,
         mut writer: W,
-        compress: ark_serialize::Compress,
+        _compress: ark_serialize::Compress,
     ) -> Result<(), SerializationError> {
         writer
-            .write_all(self.0.map(|x| x.to_le_bytes()).flatten())
+            .write_all(
+                &self
+                    .0
+                    .into_iter()
+                    .map(|x| x.to_le_bytes())
+                    .flatten()
+                    .collect::<Vec<_>>(),
+            )
             .map_err(SerializationError::IoError)
     }
 }
@@ -143,8 +150,8 @@ impl CanonicalSerialize for Asset {
 impl CanonicalDeserialize for Asset {
     fn deserialize_with_mode<R: Read>(
         mut reader: R,
-        compress: ark_serialize::Compress,
-        validate: ark_serialize::Validate,
+        _compress: ark_serialize::Compress,
+        _validate: ark_serialize::Validate,
     ) -> Result<Self, SerializationError> {
         let mut bytes = [0u8; 16 * N_ASSETS];
         reader.read_exact(&mut bytes)?;

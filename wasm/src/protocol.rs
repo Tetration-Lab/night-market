@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::{collections::BTreeMap, ops::Neg, str::FromStr};
 
 use ark_bn254::{Bn254, Fr};
 use ark_crypto_primitives::snark::SNARK;
@@ -34,6 +34,9 @@ impl AssetDiff {
         for diff in diffs {
             balances[diff.asset_index] =
                 Fr::from(u128::from_str(&diff.amount).expect("Failed to parse amount"));
+            if !diff.is_add {
+                balances[diff.asset_index] = balances[diff.asset_index].neg();
+            };
         }
         balances
     }

@@ -72,7 +72,7 @@ pub fn execute(
             let vk = VerifyingKey::<Bn254>::deserialize_uncompressed(
                 &MAIN_CIRCUIT_VK.load(deps.storage)?[..],
             )?;
-            let proof = Proof::deserialize_compressed(&base64::decode(&proof)?[..])?;
+            let proof = Proof::deserialize_uncompressed_unchecked(&base64::decode(&proof)?[..])?;
             let nullifier_hash = Fr::from_le_bytes_mod_order(&base64::decode(&nullifier_hash)?);
 
             let tree_root = Fr::from_le_bytes_mod_order(&base64::decode(&root)?);
@@ -102,7 +102,7 @@ pub fn execute(
                     .map(|a| {
                         funds_map
                             .get(a)
-                            .map(|f| Fr::from_le_bytes_mod_order(&f.to_le_bytes()))
+                            .map(|f| Fr::from(f.u128()))
                             .unwrap_or_default()
                     })
                     .collect::<Vec<_>>(),
@@ -178,14 +178,8 @@ pub fn execute(
                 .token_out_denom;
             let out_amount = Uint128::from_str(&swap_argument.token_out_min_amount)?;
             let funds_map = BTreeMap::from_iter([
-                (
-                    in_denom,
-                    Fr::from_le_bytes_mod_order(&in_amount.to_le_bytes()).neg(),
-                ),
-                (
-                    out_denom,
-                    Fr::from_le_bytes_mod_order(&out_amount.to_le_bytes()),
-                ),
+                (in_denom, Fr::from(in_amount.u128()).neg()),
+                (out_denom, Fr::from(out_amount.u128())),
             ]);
 
             (in_denom != out_denom)
@@ -203,7 +197,7 @@ pub fn execute(
             let vk = VerifyingKey::<Bn254>::deserialize_uncompressed(
                 &MAIN_CIRCUIT_VK.load(deps.storage)?[..],
             )?;
-            let proof = Proof::deserialize_compressed(&base64::decode(&proof)?[..])?;
+            let proof = Proof::deserialize_uncompressed_unchecked(&base64::decode(&proof)?[..])?;
             let nullifier_hash = Fr::from_le_bytes_mod_order(&base64::decode(&nullifier_hash)?);
             let nullifier_normalized = nullifier_hash.into_bigint().to_bytes_le();
             NULLIFIER
@@ -279,7 +273,7 @@ pub fn execute(
             let vk = VerifyingKey::<Bn254>::deserialize_uncompressed(
                 &MAIN_CIRCUIT_VK.load(deps.storage)?[..],
             )?;
-            let proof = Proof::deserialize_compressed(&base64::decode(&proof)?[..])?;
+            let proof = Proof::deserialize_uncompressed_unchecked(&base64::decode(&proof)?[..])?;
             let nullifier_hash = Fr::from_le_bytes_mod_order(&base64::decode(&nullifier_hash)?);
 
             let nullifier_normalized = nullifier_hash.into_bigint().to_bytes_le();
@@ -356,7 +350,7 @@ pub fn execute(
                         denom: balance.denom,
                     }],
                 })),
-                false => Ok(Response::new()),
+                false => Err(ContractError::MinimumSwapBalanceNotMet),
             }
         }
     }

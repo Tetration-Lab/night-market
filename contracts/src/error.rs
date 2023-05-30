@@ -43,6 +43,9 @@ pub enum ContractError {
     #[error("Invalid UTXO Tree Root")]
     InvalidRoot,
 
+    #[error("Minimum Swap Balance Not Met")]
+    MinimumSwapBalanceNotMet,
+
     #[error("Only callable by this contract")]
     NotContract,
 

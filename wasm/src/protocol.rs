@@ -150,6 +150,7 @@ impl Protocol {
         // Return proof and new account
         to_value(&json!({
             "is_index_empty": account.index.is_none(),
+            "diff_balance_root": serialize_to_hex(&diff_balance_root).expect("Failed to serialize diff balance root"),
             "proof": serialize_to_hex(&proof).expect("Failed to serialize proof"),
             "root": serialize_to_hex(&root).expect("Failed to serialize root"),
             "nullifier_hash": serialize_to_hex(&old_note_nullifier_hash).expect("Failed to serialize nullifier hash"),
@@ -284,6 +285,7 @@ impl Protocol {
 
         // Return proof and new account
         to_value(&json!({
+            "diff_balance_root": serialize_to_hex(&diff_balance_root).expect("Failed to serialize diff balance root"),
             "proof": serialize_to_hex(&proof).expect("Failed to serialize proof"),
             "root": serialize_to_hex(&root).expect("Failed to serialize root"),
             "nullifier_hash": serialize_to_hex(&old_note_nullifier_hash).expect("Failed to serialize nullifier hash"),

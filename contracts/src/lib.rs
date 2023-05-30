@@ -69,10 +69,10 @@ pub fn execute(
         } => {
             let assets = ASSETS.load(deps.storage)?;
             let hasher = poseidon_bn254();
-            let vk = VerifyingKey::<Bn254>::deserialize_uncompressed(
+            let vk = VerifyingKey::<Bn254>::deserialize_uncompressed_unchecked(
                 &MAIN_CIRCUIT_VK.load(deps.storage)?[..],
             )?;
-            let proof = Proof::deserialize_uncompressed_unchecked(&base64::decode(&proof)?[..])?;
+            let proof = Proof::deserialize_compressed_unchecked(&base64::decode(&proof)?[..])?;
             let nullifier_hash = Fr::from_le_bytes_mod_order(&base64::decode(&nullifier_hash)?);
 
             let tree_root = Fr::from_le_bytes_mod_order(&base64::decode(&root)?);
@@ -194,10 +194,10 @@ pub fn execute(
                     .collect::<Vec<_>>(),
             )?;
 
-            let vk = VerifyingKey::<Bn254>::deserialize_uncompressed(
+            let vk = VerifyingKey::<Bn254>::deserialize_uncompressed_unchecked(
                 &MAIN_CIRCUIT_VK.load(deps.storage)?[..],
             )?;
-            let proof = Proof::deserialize_uncompressed_unchecked(&base64::decode(&proof)?[..])?;
+            let proof = Proof::deserialize_compressed_unchecked(&base64::decode(&proof)?[..])?;
             let nullifier_hash = Fr::from_le_bytes_mod_order(&base64::decode(&nullifier_hash)?);
             let nullifier_normalized = nullifier_hash.into_bigint().to_bytes_le();
             NULLIFIER
@@ -270,10 +270,10 @@ pub fn execute(
         } => {
             let assets = ASSETS.load(deps.storage)?;
             let hasher = poseidon_bn254();
-            let vk = VerifyingKey::<Bn254>::deserialize_uncompressed(
+            let vk = VerifyingKey::<Bn254>::deserialize_uncompressed_unchecked(
                 &MAIN_CIRCUIT_VK.load(deps.storage)?[..],
             )?;
-            let proof = Proof::deserialize_uncompressed_unchecked(&base64::decode(&proof)?[..])?;
+            let proof = Proof::deserialize_compressed_unchecked(&base64::decode(&proof)?[..])?;
             let nullifier_hash = Fr::from_le_bytes_mod_order(&base64::decode(&nullifier_hash)?);
 
             let nullifier_normalized = nullifier_hash.into_bigint().to_bytes_le();

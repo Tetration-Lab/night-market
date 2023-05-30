@@ -16,7 +16,7 @@ use ark_bn254::{Bn254, Fr};
 use ark_crypto_primitives::snark::SNARK;
 use ark_ff::{BigInteger, PrimeField, ToConstraintField};
 use ark_groth16::{r1cs_to_qap::LibsnarkReduction, Groth16, Proof, VerifyingKey};
-use ark_serialize::CanonicalDeserialize;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::Zero;
 use circuits::{poseidon::PoseidonHash, utils::poseidon_bn254, TREE_DEPTH};
 use cosmwasm_std::{
@@ -42,10 +42,16 @@ pub fn instantiate(
     ADMIN.set(deps.branch(), Some(info.sender))?;
     ASSETS.save(deps.storage, &msg.assets.map(|e| e.to_lowercase()))?;
     MAIN_CIRCUIT_VK.save(deps.storage, &base64::decode(msg.main_circuit_vk)?)?;
+
+    let mut bytes = vec![];
+    Fr::zero()
+        .serialize_compressed(&mut bytes)
+        .expect("failed to serialize");
+
     TREE.init(
         deps.storage,
         TREE_DEPTH as u8,
-        base64::encode(Fr::zero().into_bigint().to_bytes_le()),
+        base64::encode(bytes),
         &PoseidonHasher(&hasher),
     )?;
 

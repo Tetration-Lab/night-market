@@ -335,3 +335,165 @@ fn deposit_subsequent_same_asset() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[test]
+fn deposit_alot() -> Result<(), Box<dyn Error>> {
+    let (mut app, addr, mut tree, hasher, mut rng) = init()?;
+
+    let address = Fr::from_le_bytes_mod_order(USER_1.as_bytes());
+    let nullifier = Fr::rand(&mut rng);
+    let blinding = Fr::rand(&mut rng);
+
+    let uosmo_amount = 500_000;
+    let balances = [uosmo_amount, 0, 0, 0, 0, 0, 0].map(Fr::from);
+    let balance_root = PoseidonHash::crh(&hasher, &balances)?;
+    let identifier = PoseidonHash::tto_crh(&hasher, address, blinding)?;
+    let note = PoseidonHash::crh(&hasher, &[balance_root, identifier, nullifier])?;
+    let nullifier_hash = PoseidonHash::tto_crh(&hasher, note, nullifier)?;
+
+    app.execute_contract(
+        USER_1.clone(),
+        addr.clone(),
+        &ExecuteMsg::Deposit {
+            root: String::new(),
+            nullifier_hash: String::new(),
+            identifier: String::new(),
+            new_note: serialize_to_base64(&note),
+            proof: serialize_to_base64(&Groth16::<Bn254, LibsnarkReduction>::prove(
+                &KEY.0,
+                Circuit {
+                    address,
+                    nullifier,
+                    aux: Fr::zero(),
+                    utxo_root: Fr::zero(),
+                    diff_balance_root: balance_root,
+                    diff_balances: balances,
+                    old_note_nullifier_hash: Fr::zero(),
+                    old_note_identifier: Fr::zero(),
+                    old_note_path: Path::empty(),
+                    old_note_balances: [Fr::zero(); N_ASSETS],
+                    new_note: note,
+                    new_note_blinding: blinding,
+                    new_note_balances: balances,
+                    parameters: hasher.clone(),
+                    _hg: std::marker::PhantomData,
+                },
+                &mut rng,
+            )?),
+        },
+        &[Coin::new(uosmo_amount, "uosmo")],
+    )?;
+
+    tree.insert_batch(&BTreeMap::from([(0, note)]), &hasher)?;
+
+    let new_uosmo_amount = 200_000;
+    let new_balances = [uosmo_amount + new_uosmo_amount, 0, 0, 0, 0, 0, 0].map(Fr::from);
+    let diff_balances = [new_uosmo_amount, 0, 0, 0, 0, 0, 0].map(Fr::from);
+    let diff_balance_root = PoseidonHash::crh(&hasher, &diff_balances)?;
+
+    let new_blinding = Fr::rand(&mut rng);
+    let new_identifier = PoseidonHash::tto_crh(&hasher, address, new_blinding)?;
+    let new_note = PoseidonHash::crh(
+        &hasher,
+        &[
+            PoseidonHash::crh(&hasher, &new_balances)?,
+            new_identifier,
+            nullifier,
+        ],
+    )?;
+    let new_nullifier_hash = PoseidonHash::tto_crh(&hasher, new_note, nullifier)?;
+
+    app.execute_contract(
+        USER_1.clone(),
+        addr.clone(),
+        &ExecuteMsg::Deposit {
+            root: serialize_to_base64(&tree.root()),
+            nullifier_hash: serialize_to_base64(&nullifier_hash),
+            identifier: serialize_to_base64(&identifier),
+            new_note: serialize_to_base64(&new_note),
+            proof: serialize_to_base64(&Groth16::<Bn254, LibsnarkReduction>::prove(
+                &KEY.0,
+                Circuit {
+                    address,
+                    nullifier,
+                    aux: Fr::zero(),
+                    utxo_root: tree.root(),
+                    diff_balance_root,
+                    diff_balances,
+                    old_note_nullifier_hash: nullifier_hash,
+                    old_note_identifier: identifier,
+                    old_note_path: tree.generate_membership_proof(0),
+                    old_note_balances: balances,
+                    new_note,
+                    new_note_blinding: new_blinding,
+                    new_note_balances: new_balances,
+                    parameters: hasher.clone(),
+                    _hg: std::marker::PhantomData,
+                },
+                &mut rng,
+            )?),
+        },
+        &[Coin::new(new_uosmo_amount, "uosmo")],
+    )?;
+
+    tree.insert_batch(&BTreeMap::from([(1, new_note)]), &hasher)?;
+
+    let final_uosmo_amount = 200_000;
+    let final_balances = [
+        uosmo_amount + new_uosmo_amount + final_uosmo_amount,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    ]
+    .map(Fr::from);
+    let diff_balances = [final_uosmo_amount, 0, 0, 0, 0, 0, 0].map(Fr::from);
+    let diff_balance_root = PoseidonHash::crh(&hasher, &diff_balances)?;
+
+    let final_blinding = Fr::rand(&mut rng);
+    let final_note = PoseidonHash::crh(
+        &hasher,
+        &[
+            PoseidonHash::crh(&hasher, &final_balances)?,
+            PoseidonHash::tto_crh(&hasher, address, final_blinding)?,
+            nullifier,
+        ],
+    )?;
+
+    app.execute_contract(
+        USER_1.clone(),
+        addr.clone(),
+        &ExecuteMsg::Deposit {
+            root: serialize_to_base64(&tree.root()),
+            nullifier_hash: serialize_to_base64(&new_nullifier_hash),
+            identifier: serialize_to_base64(&new_identifier),
+            new_note: serialize_to_base64(&final_note),
+            proof: serialize_to_base64(&Groth16::<Bn254, LibsnarkReduction>::prove(
+                &KEY.0,
+                Circuit {
+                    address,
+                    nullifier,
+                    aux: Fr::zero(),
+                    utxo_root: tree.root(),
+                    diff_balance_root,
+                    diff_balances,
+                    old_note_nullifier_hash: new_nullifier_hash,
+                    old_note_identifier: new_identifier,
+                    old_note_path: tree.generate_membership_proof(1),
+                    old_note_balances: new_balances,
+                    new_note: final_note,
+                    new_note_blinding: final_blinding,
+                    new_note_balances: final_balances,
+                    parameters: hasher.clone(),
+                    _hg: std::marker::PhantomData,
+                },
+                &mut rng,
+            )?),
+        },
+        &[Coin::new(new_uosmo_amount, "uosmo")],
+    )?;
+
+    Ok(())
+}

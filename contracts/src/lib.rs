@@ -305,13 +305,15 @@ pub fn execute(
                 .then_some(())
                 .ok_or(ContractError::InvalidRoot)?;
 
+            let normalized_withdrawn_assets =
+                BTreeMap::from_iter(withdrawn_assets.iter().map(|(k, v)| (k.to_lowercase(), *v)));
             let diff_balance_root = PoseidonHash::crh(
                 &hasher,
                 &assets
                     .iter()
                     .map(|a| {
-                        withdrawn_assets
-                            .get(a)
+                        normalized_withdrawn_assets
+                            .get(&a.to_lowercase())
                             .map(|f| Fr::from(f.u128()).neg())
                             .unwrap_or_default()
                     })

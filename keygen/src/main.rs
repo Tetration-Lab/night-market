@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     std::fs::write("pk.bin", &pk_bytes)?;
     std::fs::write("vk.bin", &vk_bytes)?;
 
-    println!("Uncompressed pk:");
+    println!("VK");
     println!("{}", base64::encode(&vk_bytes));
 
     Ok(())

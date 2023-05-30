@@ -1,1 +1,1 @@
-c729c7ec547f2bd804ba422741fcd6ad7e9e14ef8f610059c00a82e91c0a9dd0  contracts-aarch64.wasm
+9007cc513f506a33d287bb775b0d3772b7e0eab1c06b3fa810a9c85fe582a302  contracts-aarch64.wasm

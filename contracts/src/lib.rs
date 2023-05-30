@@ -297,7 +297,7 @@ pub fn execute(
                     .map(|a| {
                         withdrawn_assets
                             .get(a)
-                            .map(|f| Fr::from_le_bytes_mod_order(&f.to_le_bytes()).neg())
+                            .map(|f| Fr::from(f.u128()).neg())
                             .unwrap_or_default()
                     })
                     .collect::<Vec<_>>(),

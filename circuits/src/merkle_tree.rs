@@ -342,9 +342,9 @@ impl<
             let previous_is_left = previous_hash.is_eq(p_left_hash)?;
 
             let left_hash =
-                FpVar::conditionally_select(&previous_is_left, p_left_hash, p_right_hash)?;
+                FpVar::conditionally_select(&previous_is_left, &previous_hash, p_left_hash)?;
             let right_hash =
-                FpVar::conditionally_select(&previous_is_left, p_right_hash, p_left_hash)?;
+                FpVar::conditionally_select(&previous_is_left, p_right_hash, &previous_hash)?;
 
             previous_hash =
                 <HG as TwoToOneCRHSchemeGadget<H, F>>::evaluate(hasher, &left_hash, &right_hash)?;
@@ -420,50 +420,34 @@ impl<
 
 #[cfg(test)]
 mod tests {
-    //use std::{collections::BTreeMap, error::Error};
+    use std::{collections::BTreeMap, error::Error};
 
-    //use ark_bn254::Fr;
-    //use ark_r1cs_std::{
-    //fields::fp::FpVar,
-    //prelude::{AllocVar, Boolean, EqGadget},
-    //};
-    //use ark_relations::r1cs::ConstraintSystem;
-    //use ark_std::{test_rng, UniformRand, Zero};
+    use ark_bn254::Fr;
+    use ark_std::Zero;
 
-    //use crate::utils::mimc;
+    use crate::{poseidon::PoseidonHash, utils::poseidon_bn254, TREE_DEPTH};
 
-    //use super::{PathVar, SparseMerkleTree};
+    use super::SparseMerkleTree;
 
-    //#[test]
-    //fn correct_constraints() -> Result<(), Box<dyn Error>> {
-    //let cs = ConstraintSystem::<Fr>::new_ref();
-    //let mimc = mimc();
-    //let rng = &mut test_rng();
-    //let leaf = Fr::rand(rng);
-    //let tree = SparseMerkleTree::<Fr, MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS>, 3>::new(
-    //&BTreeMap::from([(0, leaf)]),
-    //&mimc,
-    //&Fr::zero(),
-    //)?;
-    //let path = tree.generate_membership_proof(0);
+    #[test]
+    fn correct_proof() -> Result<(), Box<dyn Error>> {
+        let hash = poseidon_bn254();
+        let mut tree = SparseMerkleTree::<Fr, PoseidonHash<Fr>, TREE_DEPTH>::new(
+            &BTreeMap::new(),
+            &hash,
+            &Fr::zero(),
+        )
+        .expect("should create empty tree");
 
-    //let hasher_var = MiMCVar::new_constant(cs.clone(), mimc)?;
-    //let leaf_var = FpVar::new_witness(cs.clone(), || Ok(leaf))?;
-    //let root_var = FpVar::new_input(cs.clone(), || Ok(tree.root()))?;
-    //let path_var =
-    //PathVar::<Fr, MiMCNonFeistelCRH<_, _>, MiMCNonFeistelCRHGadget<_, _>, 3>::new_witness(
-    //cs.clone(),
-    //|| Ok(path),
-    //)?;
-    //path_var
-    //.check_membership(&root_var, &leaf_var, &hasher_var)?
-    //.enforce_equal(&Boolean::TRUE)?;
+        tree.insert_batch(&BTreeMap::from([(0, Fr::from(1))]), &hash)?;
+        tree.insert_batch(&BTreeMap::from([(1, Fr::from(10))]), &hash)?;
 
-    //assert!(
-    //cs.is_satisfied().expect("should calculate satisfibility"),
-    //"not satisfied"
-    //);
+        let proof = tree.generate_membership_proof(1);
 
-    //Ok(())
-    //}
+        let root = proof.calculate_root(&Fr::from(10), &hash)?;
+
+        assert_eq!(root, tree.root());
+
+        Ok(())
+    }
 }

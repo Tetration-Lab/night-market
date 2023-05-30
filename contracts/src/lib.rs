@@ -7,6 +7,7 @@ pub mod state;
 mod test;
 
 use std::{
+    cmp::Ordering,
     collections::BTreeMap,
     ops::{Neg, Not},
     str::FromStr,
@@ -356,15 +357,16 @@ pub fn execute(
             LATEST_SWAP.remove(deps.storage);
 
             let min_balance = balance.amount + amount;
-            match current_balance.amount > min_balance {
-                true => Ok(Response::new().add_message(BankMsg::Send {
+            match current_balance.amount.cmp(&min_balance) {
+                Ordering::Greater => Ok(Response::new().add_message(BankMsg::Send {
                     to_address: recipient.to_string(),
                     amount: vec![Coin {
                         amount: current_balance.amount - min_balance,
                         denom: balance.denom,
                     }],
                 })),
-                false => Err(ContractError::MinimumSwapBalanceNotMet),
+                Ordering::Equal => Ok(Response::new()),
+                Ordering::Less => Err(ContractError::MinimumSwapBalanceNotMet),
             }
         }
     }

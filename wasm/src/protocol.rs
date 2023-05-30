@@ -1,14 +1,16 @@
-use std::str::FromStr;
+use std::{collections::BTreeMap, str::FromStr};
 
 use ark_bn254::{Bn254, Fr};
 use ark_crypto_primitives::snark::SNARK;
-use ark_ff::ToConstraintField;
+use ark_ff::{PrimeField, ToConstraintField};
 use ark_groth16::{r1cs_to_qap::LibsnarkReduction, Groth16, ProvingKey, VerifyingKey};
 use ark_serialize::CanonicalDeserialize;
 use ark_std::Zero;
 use circuits::{
-    merkle_tree::Path, poseidon::PoseidonHash, utils::poseidon_bn254, MainCircuitBn254, N_ASSETS,
-    TREE_DEPTH,
+    merkle_tree::{Path, SparseMerkleTree},
+    poseidon::PoseidonHash,
+    utils::poseidon_bn254,
+    MainCircuitBn254, N_ASSETS, TREE_DEPTH,
 };
 use osmosis_std::types::osmosis::gamm::v1beta1::MsgSwapExactAmountIn;
 use rand::rngs::OsRng;
@@ -17,7 +19,7 @@ use serde_json::{json, to_vec};
 use serde_wasm_bindgen::{from_value, to_value};
 use wasm_bindgen::prelude::*;
 
-use crate::{account::Account, smt::SparseMerkleTree, utils::serialize_to_hex};
+use crate::{account::Account, utils::serialize_to_hex};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AssetDiff {
@@ -56,15 +58,26 @@ impl Protocol {
         let diffs =
             from_value::<Vec<AssetDiff>>(diffs).expect("Failed to deserialize balance diffs");
 
-        let mut tree = SparseMerkleTree::new();
-        tree.insert_batch(tree_notes);
+        let leaf_list: Vec<String> = from_value(tree_notes).expect("Failed to parse leaf list");
+        let length = leaf_list.len();
+        let tree = SparseMerkleTree::new(
+            &BTreeMap::from_iter(leaf_list.into_iter().enumerate().map(|(i, l)| {
+                (
+                    i as u32,
+                    Fr::from_le_bytes_mod_order(&base64::decode(l).unwrap()),
+                )
+            })),
+            &hash,
+            &Fr::zero(),
+        )
+        .expect("Failed to create merkle tree");
 
         // Update account balance and blinding
         let account = Account::from_string(account);
         let mut new_account = *&account;
         new_account.update_balance(&diffs);
         new_account.randomize_blinding();
-        new_account.update_index(Some(tree.latest_index as u32));
+        new_account.update_index(Some(length as u32));
 
         // Calculate diff balances and diff balance root
         let diff_balances = AssetDiff::balances(&diffs);
@@ -91,10 +104,10 @@ impl Protocol {
         // Calculate old note path and old note nullifier hash
         let (merkle_path, old_note_nullifier_hash, root) = match account.index {
             Some(i) => (
-                tree.tree.generate_membership_proof(i as u64),
+                tree.generate_membership_proof(i as u64),
                 PoseidonHash::tto_crh(&hash, old_note, account.nullifier)
                     .expect("Failed to hash nullifier"),
-                tree.tree.root(),
+                tree.root(),
             ),
             None => (Path::empty(), Fr::zero(), Fr::zero()),
         };
@@ -192,15 +205,26 @@ impl Protocol {
         let diffs =
             from_value::<Vec<AssetDiff>>(diffs).expect("Failed to deserialize balance diffs");
 
-        let mut tree = SparseMerkleTree::new();
-        tree.insert_batch(tree_notes);
+        let leaf_list: Vec<String> = from_value(tree_notes).expect("Failed to parse leaf list");
+        let length = leaf_list.len();
+        let tree = SparseMerkleTree::new(
+            &BTreeMap::from_iter(leaf_list.into_iter().enumerate().map(|(i, l)| {
+                (
+                    i as u32,
+                    Fr::from_le_bytes_mod_order(&base64::decode(l).unwrap()),
+                )
+            })),
+            &hash,
+            &Fr::zero(),
+        )
+        .expect("Failed to create merkle tree");
 
         // Update account balance and blinding
         let account = Account::from_string(account);
         let mut new_account = *&account;
         new_account.update_balance(&diffs);
         new_account.randomize_blinding();
-        new_account.update_index(Some(tree.latest_index as u32));
+        new_account.update_index(Some(length as u32));
 
         // Calculate diff balances and diff balance root
         let diff_balances = AssetDiff::balances(&diffs);
@@ -227,10 +251,10 @@ impl Protocol {
         // Calculate old note path and old note nullifier hash
         let (merkle_path, old_note_nullifier_hash, root) = match account.index {
             Some(i) => (
-                tree.tree.generate_membership_proof(i as u64),
+                tree.generate_membership_proof(i as u64),
                 PoseidonHash::tto_crh(&hash, old_note, account.nullifier)
                     .expect("Failed to hash nullifier"),
-                tree.tree.root(),
+                tree.root(),
             ),
             None => (Path::empty(), Fr::zero(), Fr::zero()),
         };
@@ -330,15 +354,26 @@ impl Protocol {
         let diffs =
             from_value::<Vec<AssetDiff>>(diffs).expect("Failed to deserialize balance diffs");
 
-        let mut tree = SparseMerkleTree::new();
-        tree.insert_batch(tree_notes);
+        let leaf_list: Vec<String> = from_value(tree_notes).expect("Failed to parse leaf list");
+        let length = leaf_list.len();
+        let tree = SparseMerkleTree::new(
+            &BTreeMap::from_iter(leaf_list.into_iter().enumerate().map(|(i, l)| {
+                (
+                    i as u32,
+                    Fr::from_le_bytes_mod_order(&base64::decode(l).unwrap()),
+                )
+            })),
+            &hash,
+            &Fr::zero(),
+        )
+        .expect("Failed to create merkle tree");
 
         // Update account balance and blinding
         let account = Account::from_string(account);
         let mut new_account = *&account;
         new_account.update_balance(&diffs);
         new_account.randomize_blinding();
-        new_account.update_index(Some(tree.latest_index as u32));
+        new_account.update_index(Some(length as u32));
 
         // Calculate diff balances and diff balance root
         let diff_balances = AssetDiff::balances(&diffs);
@@ -366,10 +401,10 @@ impl Protocol {
         let i = account.index.expect("Index is none");
         let (merkle_path, old_note_nullifier_hash, root) = {
             (
-                tree.tree.generate_membership_proof(i as u64),
+                tree.generate_membership_proof(i as u64),
                 PoseidonHash::tto_crh(&hash, old_note, account.nullifier)
                     .expect("Failed to hash nullifier"),
-                tree.tree.root(),
+                tree.root(),
             )
         };
 

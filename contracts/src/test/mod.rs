@@ -6,6 +6,7 @@ use std::error::Error;
 
 use ark_bn254::{Bn254, Fr};
 use ark_crypto_primitives::{snark::SNARK, sponge::poseidon::PoseidonConfig};
+use ark_ff::PrimeField;
 use ark_groth16::{Groth16, ProvingKey, VerifyingKey};
 use ark_serialize::CanonicalSerialize;
 use circuits::{
@@ -80,4 +81,15 @@ fn init() -> Result<
     )?;
 
     Ok((app, addr, tree, hasher, OsRng))
+}
+
+#[test]
+fn correct_bytes_serialization() -> Result<(), Box<dyn Error>> {
+    let f = Fr::from(12829382362812u128);
+    let base64 = serialize_to_base64(&f);
+    let decoded_f = Fr::from_le_bytes_mod_order(&base64::decode(base64)?);
+
+    assert_eq!(f, decoded_f);
+
+    Ok(())
 }

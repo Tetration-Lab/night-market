@@ -93,15 +93,18 @@ pub fn execute(
                 NULLIFIER.save(deps.storage, &nullifier_normalized, &())?;
             }
 
-            let funds_map =
-                BTreeMap::from_iter(info.funds.into_iter().map(|e| (e.denom, e.amount)));
+            let funds_map = BTreeMap::from_iter(
+                info.funds
+                    .into_iter()
+                    .map(|e| (e.denom.to_lowercase(), e.amount)),
+            );
             let diff_balance_root = PoseidonHash::crh(
                 &hasher,
                 &assets
                     .iter()
                     .map(|a| {
                         funds_map
-                            .get(a)
+                            .get(&a.to_lowercase())
                             .map(|f| Fr::from(f.u128()))
                             .unwrap_or_default()
                     })
@@ -178,8 +181,8 @@ pub fn execute(
                 .token_out_denom;
             let out_amount = Uint128::from_str(&swap_argument.token_out_min_amount)?;
             let funds_map = BTreeMap::from_iter([
-                (in_denom, Fr::from(in_amount.u128()).neg()),
-                (out_denom, Fr::from(out_amount.u128())),
+                (in_denom.to_lowercase(), Fr::from(in_amount.u128()).neg()),
+                (out_denom.to_lowercase(), Fr::from(out_amount.u128())),
             ]);
 
             (in_denom != out_denom)
@@ -190,7 +193,12 @@ pub fn execute(
                 &hasher,
                 &assets
                     .iter()
-                    .map(|a| funds_map.get(a).copied().unwrap_or_default())
+                    .map(|a| {
+                        funds_map
+                            .get(&a.to_lowercase())
+                            .copied()
+                            .unwrap_or_default()
+                    })
                     .collect::<Vec<_>>(),
             )?;
 

@@ -98,9 +98,6 @@ export interface InitOutput {
   readonly sparsemerkletree_new: () => number;
   readonly sparsemerkletree_root: (a: number, b: number) => void;
   readonly sparsemerkletree_insert_batch: (a: number, b: number) => void;
-  readonly protocol_deposit_withdraw: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly protocol_swap: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => number;
-  readonly __wbg_protocol_free: (a: number) => void;
   readonly __wbg_account_free: (a: number) => void;
   readonly account__new: (a: number, b: number) => number;
   readonly account_fromString: (a: number, b: number) => number;
@@ -110,6 +107,9 @@ export interface InitOutput {
   readonly account_balance: (a: number) => number;
   readonly account_blinding: (a: number, b: number) => void;
   readonly account_index: (a: number, b: number) => void;
+  readonly protocol_deposit_withdraw: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly protocol_swap: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => number;
+  readonly __wbg_protocol_free: (a: number) => void;
   readonly interface_version_8: () => void;
   readonly allocate: (a: number) => number;
   readonly deallocate: (a: number) => void;

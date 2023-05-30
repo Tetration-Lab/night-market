@@ -8,9 +8,6 @@ export function __wbg_set_sparsemerkletree_latest_index(a: number, b: number): v
 export function sparsemerkletree_new(): number;
 export function sparsemerkletree_root(a: number, b: number): void;
 export function sparsemerkletree_insert_batch(a: number, b: number): void;
-export function protocol_deposit_withdraw(a: number, b: number, c: number, d: number, e: number, f: number): number;
-export function protocol_swap(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number): number;
-export function __wbg_protocol_free(a: number): void;
 export function __wbg_account_free(a: number): void;
 export function account__new(a: number, b: number): number;
 export function account_fromString(a: number, b: number): number;
@@ -20,6 +17,9 @@ export function account_updateIndexFromString(a: number, b: number, c: number, d
 export function account_balance(a: number): number;
 export function account_blinding(a: number, b: number): void;
 export function account_index(a: number, b: number): void;
+export function protocol_deposit_withdraw(a: number, b: number, c: number, d: number, e: number, f: number): number;
+export function protocol_swap(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number): number;
+export function __wbg_protocol_free(a: number): void;
 export function interface_version_8(): void;
 export function allocate(a: number): number;
 export function deallocate(a: number): void;

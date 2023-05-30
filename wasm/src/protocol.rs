@@ -17,7 +17,7 @@ use serde_json::{json, to_vec};
 use serde_wasm_bindgen::{from_value, to_value};
 use wasm_bindgen::prelude::*;
 
-use crate::{account::Account, log, smt::SparseMerkleTree, utils::serialize_to_hex};
+use crate::{account::Account, smt::SparseMerkleTree, utils::serialize_to_hex};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AssetDiff {
@@ -98,9 +98,17 @@ impl Protocol {
             None => (Path::empty(), Fr::zero(), Fr::zero()),
         };
 
+        if account.index.is_some() {
+            merkle_path
+                .check_membership(&root, &old_note, &hash)
+                .expect("Failed to calculate membership")
+                .then_some(())
+                .expect("Failed to check membership");
+        }
+
         // Calculate new note and new note nullifier hash
         let new_note_blinding = new_account.latest_blinding;
-        let new_note_balances = new_account.balance.0.map(Fr::from);
+        let new_note_balances: [Fr; N_ASSETS] = new_account.balance.0.map(Fr::from);
         let new_note_balance_root =
             PoseidonHash::crh(&hash, &new_note_balances).expect("Failed to hash balance root");
         let new_note = PoseidonHash::crh(
@@ -141,6 +149,7 @@ impl Protocol {
 
         // Return proof and new account
         to_value(&json!({
+            "is_index_empty": account.index.is_none(),
             "proof": serialize_to_hex(&proof).expect("Failed to serialize proof"),
             "root": serialize_to_hex(&root).expect("Failed to serialize root"),
             "nullifier_hash": serialize_to_hex(&old_note_nullifier_hash).expect("Failed to serialize nullifier hash"),
@@ -216,26 +225,25 @@ impl Protocol {
         .expect("Failed to hash old note");
 
         // Calculate old note path and old note nullifier hash
-        log(&format!("Index {:?}", account.index));
-        let (merkle_path, old_note_nullifier_hash, root) = match account.index {
-            Some(i) => (
+        let i = account.index.expect("Index is none");
+        let (merkle_path, old_note_nullifier_hash, root) = {
+            (
                 tree.tree.generate_membership_proof(i as u64),
                 PoseidonHash::tto_crh(&hash, old_note, account.nullifier)
                     .expect("Failed to hash nullifier"),
                 tree.tree.root(),
-            ),
-            None => (Path::empty(), Fr::zero(), Fr::zero()),
+            )
         };
-        log(&format!("Path {:?}", merkle_path));
-        log(&format!(
-            "Old not nullifier hash {:?}",
-            old_note_nullifier_hash
-        ));
-        log(&format!("Root {:?}", root));
+
+        merkle_path
+            .check_membership(&root, &old_note, &hash)
+            .expect("Failed to calculate membership")
+            .then_some(())
+            .expect("Failed to check membership");
 
         // Calculate new note and new note nullifier hash
         let new_note_blinding = new_account.latest_blinding;
-        let new_note_balances = new_account.balance.0.map(Fr::from);
+        let new_note_balances: [Fr; N_ASSETS] = new_account.balance.0.map(Fr::from);
         let new_note_balance_root =
             PoseidonHash::crh(&hash, &new_note_balances).expect("Failed to hash balance root");
         let new_note = PoseidonHash::crh(

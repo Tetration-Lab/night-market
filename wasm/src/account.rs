@@ -28,7 +28,8 @@ pub struct Account {
     pub latest_blinding: Fr,
     #[wasm_bindgen(skip)]
     pub address: Fr,
-    pub index: Option<usize>,
+    #[wasm_bindgen(skip)]
+    pub index: Option<u64>,
 }
 
 #[wasm_bindgen]
@@ -49,12 +50,12 @@ impl Account {
     }
 
     #[wasm_bindgen(js_name = updateIndex)]
-    pub fn update_index(&mut self, new_index: Option<usize>) {
+    pub fn update_index(&mut self, new_index: Option<u64>) {
         self.index = new_index;
     }
 
     #[wasm_bindgen(js_name = updateIndexFromString)]
-    pub fn update_account_index(account: &str, new_index: usize) -> String {
+    pub fn update_account_index(account: &str, new_index: u64) -> String {
         let mut account = Self::from_string(account);
         account.index = Some(new_index);
         account.to_string()
@@ -74,6 +75,11 @@ impl Account {
     #[wasm_bindgen]
     pub fn blinding(&self) -> String {
         serialize_to_hex(&self.latest_blinding).expect("Failed to serialize blinding")
+    }
+
+    #[wasm_bindgen]
+    pub fn index(&self) -> Option<u64> {
+        self.index
     }
 }
 

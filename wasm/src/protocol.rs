@@ -63,7 +63,7 @@ impl Protocol {
         let mut new_account = *&account;
         new_account.update_balance(&diffs);
         new_account.randomize_blinding();
-        new_account.update_index(Some(tree.latest_index));
+        new_account.update_index(Some(tree.latest_index as u64));
 
         // Calculate diff balances and diff balance root
         let diff_balances = AssetDiff::balances(&diffs);
@@ -115,36 +115,33 @@ impl Protocol {
         .expect("Failed to hash new note");
 
         // Generate proof
-        let proof = {
-            let proof = Groth16::<Bn254>::prove(
-                &ProvingKey::deserialize_uncompressed_unchecked(pk)
-                    .expect("Failed to deserialize proving key"),
-                MainCircuitBn254::<{ N_ASSETS }, { TREE_DEPTH }> {
-                    address: account.address,
-                    nullifier: account.nullifier,
-                    aux: Fr::zero(),
-                    utxo_root: root,
-                    diff_balance_root,
-                    diff_balances,
-                    old_note_nullifier_hash,
-                    old_note_identifier,
-                    old_note_path: merkle_path,
-                    old_note_balances,
-                    new_note,
-                    new_note_blinding,
-                    new_note_balances,
-                    parameters: hash,
-                    _hg: std::marker::PhantomData,
-                },
-                &mut OsRng,
-            )
-            .expect("Failed to generate proof");
-            serialize_to_hex(&proof).expect("Failed to serialize proof")
-        };
+        let proof = Groth16::<Bn254>::prove(
+            &ProvingKey::deserialize_uncompressed_unchecked(pk)
+                .expect("Failed to deserialize proving key"),
+            MainCircuitBn254::<{ N_ASSETS }, { TREE_DEPTH }> {
+                address: account.address,
+                nullifier: account.nullifier,
+                aux: Fr::zero(),
+                utxo_root: root,
+                diff_balance_root,
+                diff_balances,
+                old_note_nullifier_hash,
+                old_note_identifier,
+                old_note_path: merkle_path,
+                old_note_balances,
+                new_note,
+                new_note_blinding,
+                new_note_balances,
+                parameters: hash,
+                _hg: std::marker::PhantomData,
+            },
+            &mut OsRng,
+        )
+        .expect("Failed to generate proof");
 
         // Return proof and new account
         to_value(&json!({
-            "proof": proof,
+            "proof": serialize_to_hex(&proof).expect("Failed to serialize proof"),
             "root": serialize_to_hex(&root).expect("Failed to serialize root"),
             "nullifier_hash": serialize_to_hex(&old_note_nullifier_hash).expect("Failed to serialize nullifier hash"),
             "identifier": serialize_to_hex(&old_note_identifier).expect("Failed to serialize identifier"),
@@ -194,7 +191,7 @@ impl Protocol {
         let mut new_account = *&account;
         new_account.update_balance(&diffs);
         new_account.randomize_blinding();
-        new_account.update_index(Some(tree.latest_index));
+        new_account.update_index(Some(tree.latest_index as u64));
 
         // Calculate diff balances and diff balance root
         let diff_balances = AssetDiff::balances(&diffs);
@@ -246,36 +243,33 @@ impl Protocol {
         .expect("Failed to hash new note");
 
         // Generate proof
-        let proof = {
-            let proof = Groth16::<Bn254>::prove(
-                &ProvingKey::deserialize_uncompressed_unchecked(pk)
-                    .expect("Failed to deserialize proving key"),
-                MainCircuitBn254::<{ N_ASSETS }, { TREE_DEPTH }> {
-                    address: account.address,
-                    nullifier: account.nullifier,
-                    aux,
-                    utxo_root: root,
-                    diff_balance_root,
-                    diff_balances,
-                    old_note_nullifier_hash,
-                    old_note_identifier,
-                    old_note_path: merkle_path,
-                    old_note_balances,
-                    new_note,
-                    new_note_blinding,
-                    new_note_balances,
-                    parameters: hash,
-                    _hg: std::marker::PhantomData,
-                },
-                &mut OsRng,
-            )
-            .expect("Failed to generate proof");
-            serialize_to_hex(&proof).expect("Failed to serialize proof")
-        };
+        let proof = Groth16::<Bn254>::prove(
+            &ProvingKey::deserialize_uncompressed_unchecked(pk)
+                .expect("Failed to deserialize proving key"),
+            MainCircuitBn254::<{ N_ASSETS }, { TREE_DEPTH }> {
+                address: account.address,
+                nullifier: account.nullifier,
+                aux,
+                utxo_root: root,
+                diff_balance_root,
+                diff_balances,
+                old_note_nullifier_hash,
+                old_note_identifier,
+                old_note_path: merkle_path,
+                old_note_balances,
+                new_note,
+                new_note_blinding,
+                new_note_balances,
+                parameters: hash,
+                _hg: std::marker::PhantomData,
+            },
+            &mut OsRng,
+        )
+        .expect("Failed to generate proof");
 
         // Return proof and new account
         to_value(&json!({
-            "proof": proof,
+            "proof": serialize_to_hex(&proof).expect("Failed to serialize proof"),
             "root": serialize_to_hex(&root).expect("Failed to serialize root"),
             "nullifier_hash": serialize_to_hex(&old_note_nullifier_hash).expect("Failed to serialize nullifier hash"),
             "identifier": serialize_to_hex(&old_note_identifier).expect("Failed to serialize identifier"),

@@ -27,7 +27,7 @@ if (typeof TextDecoder !== 'undefined') { cachedTextDecoder.decode(); };
 let cachedUint8Memory0 = null;
 
 function getUint8Memory0() {
-    if (cachedUint8Memory0 === null || cachedUint8Memory0.buffer !== wasm.memory.buffer) {
+    if (cachedUint8Memory0 === null || cachedUint8Memory0.byteLength === 0) {
         cachedUint8Memory0 = new Uint8Array(wasm.memory.buffer);
     }
     return cachedUint8Memory0;
@@ -35,7 +35,7 @@ function getUint8Memory0() {
 
 function getStringFromWasm0(ptr, len) {
     ptr = ptr >>> 0;
-    return cachedTextDecoder.decode(getUint8Memory0().slice(ptr, ptr + len));
+    return cachedTextDecoder.decode(getUint8Memory0().subarray(ptr, ptr + len));
 }
 
 function addHeapObject(obj) {
@@ -51,14 +51,18 @@ let WASM_VECTOR_LEN = 0;
 
 const cachedTextEncoder = (typeof TextEncoder !== 'undefined' ? new TextEncoder('utf-8') : { encode: () => { throw Error('TextEncoder not available') } } );
 
-const encodeString = function (arg, view) {
+const encodeString = (typeof cachedTextEncoder.encodeInto === 'function'
+    ? function (arg, view) {
+    return cachedTextEncoder.encodeInto(arg, view);
+}
+    : function (arg, view) {
     const buf = cachedTextEncoder.encode(arg);
     view.set(buf);
     return {
         read: arg.length,
         written: buf.length
     };
-};
+});
 
 function passStringToWasm0(arg, malloc, realloc) {
 
@@ -105,7 +109,7 @@ function isLikeNone(x) {
 let cachedInt32Memory0 = null;
 
 function getInt32Memory0() {
-    if (cachedInt32Memory0 === null || cachedInt32Memory0.buffer !== wasm.memory.buffer) {
+    if (cachedInt32Memory0 === null || cachedInt32Memory0.byteLength === 0) {
         cachedInt32Memory0 = new Int32Array(wasm.memory.buffer);
     }
     return cachedInt32Memory0;
@@ -114,7 +118,7 @@ function getInt32Memory0() {
 let cachedFloat64Memory0 = null;
 
 function getFloat64Memory0() {
-    if (cachedFloat64Memory0 === null || cachedFloat64Memory0.buffer !== wasm.memory.buffer) {
+    if (cachedFloat64Memory0 === null || cachedFloat64Memory0.byteLength === 0) {
         cachedFloat64Memory0 = new Float64Array(wasm.memory.buffer);
     }
     return cachedFloat64Memory0;
@@ -123,7 +127,7 @@ function getFloat64Memory0() {
 let cachedBigInt64Memory0 = null;
 
 function getBigInt64Memory0() {
-    if (cachedBigInt64Memory0 === null || cachedBigInt64Memory0.buffer !== wasm.memory.buffer) {
+    if (cachedBigInt64Memory0 === null || cachedBigInt64Memory0.byteLength === 0) {
         cachedBigInt64Memory0 = new BigInt64Array(wasm.memory.buffer);
     }
     return cachedBigInt64Memory0;
@@ -237,26 +241,6 @@ export class Account {
         wasm.__wbg_account_free(ptr);
     }
     /**
-    * @returns {number | undefined}
-    */
-    get index() {
-        try {
-            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            wasm.__wbg_get_account_index(retptr, this.__wbg_ptr);
-            var r0 = getInt32Memory0()[retptr / 4 + 0];
-            var r1 = getInt32Memory0()[retptr / 4 + 1];
-            return r0 === 0 ? undefined : r1 >>> 0;
-        } finally {
-            wasm.__wbindgen_add_to_stack_pointer(16);
-        }
-    }
-    /**
-    * @param {number | undefined} arg0
-    */
-    set index(arg0) {
-        wasm.__wbg_set_account_index(this.__wbg_ptr, !isLikeNone(arg0), isLikeNone(arg0) ? 0 : arg0);
-    }
-    /**
     * @param {string} address
     * @returns {Account}
     */
@@ -296,14 +280,14 @@ export class Account {
         }
     }
     /**
-    * @param {number | undefined} new_index
+    * @param {bigint | undefined} new_index
     */
     updateIndex(new_index) {
-        wasm.account_updateIndex(this.__wbg_ptr, !isLikeNone(new_index), isLikeNone(new_index) ? 0 : new_index);
+        wasm.account_updateIndex(this.__wbg_ptr, !isLikeNone(new_index), isLikeNone(new_index) ? BigInt(0) : new_index);
     }
     /**
     * @param {string} account
-    * @param {number} new_index
+    * @param {bigint} new_index
     * @returns {string}
     */
     static updateIndexFromString(account, new_index) {
@@ -348,6 +332,20 @@ export class Account {
         } finally {
             wasm.__wbindgen_add_to_stack_pointer(16);
             wasm.__wbindgen_free(deferred1_0, deferred1_1);
+        }
+    }
+    /**
+    * @returns {bigint | undefined}
+    */
+    index() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.account_index(retptr, this.__wbg_ptr);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r2 = getBigInt64Memory0()[retptr / 8 + 1];
+            return r0 === 0 ? undefined : BigInt.asUintN(64, r2);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
         }
     }
 }
@@ -799,7 +797,7 @@ function __wbg_get_imports() {
 }
 
 function __wbg_init_memory(imports, maybe_memory) {
-    imports.wbg.memory = maybe_memory || new WebAssembly.Memory({initial:18,maximum:16384,shared:true});
+
 }
 
 function __wbg_finalize_init(instance, module) {
@@ -814,12 +812,12 @@ function __wbg_finalize_init(instance, module) {
     return wasm;
 }
 
-function initSync(module, maybe_memory) {
+function initSync(module) {
     if (wasm !== undefined) return wasm;
 
     const imports = __wbg_get_imports();
 
-    __wbg_init_memory(imports, maybe_memory);
+    __wbg_init_memory(imports);
 
     if (!(module instanceof WebAssembly.Module)) {
         module = new WebAssembly.Module(module);
@@ -830,7 +828,7 @@ function initSync(module, maybe_memory) {
     return __wbg_finalize_init(instance, module);
 }
 
-async function __wbg_init(input, maybe_memory) {
+async function __wbg_init(input) {
     if (wasm !== undefined) return wasm;
 
     if (typeof input === 'undefined') {
@@ -842,7 +840,7 @@ async function __wbg_init(input, maybe_memory) {
         input = fetch(input);
     }
 
-    __wbg_init_memory(imports, maybe_memory);
+    __wbg_init_memory(imports);
 
     const { instance, module } = await __wbg_load(await input, imports);
 

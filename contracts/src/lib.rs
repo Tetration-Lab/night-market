@@ -41,7 +41,7 @@ pub fn instantiate(
     let hasher = poseidon_bn254();
 
     ADMIN.set(deps.branch(), Some(info.sender))?;
-    ASSETS.save(deps.storage, &msg.assets.map(|e| e.to_lowercase()))?;
+    ASSETS.save(deps.storage, &msg.assets)?;
     MAIN_CIRCUIT_VK.save(deps.storage, &base64::decode(msg.main_circuit_vk)?)?;
 
     let mut bytes = vec![];
@@ -100,18 +100,15 @@ pub fn execute(
                 NULLIFIER.save(deps.storage, &nullifier_normalized, &())?;
             }
 
-            let funds_map = BTreeMap::from_iter(
-                info.funds
-                    .into_iter()
-                    .map(|e| (e.denom.to_lowercase(), e.amount)),
-            );
+            let funds_map =
+                BTreeMap::from_iter(info.funds.into_iter().map(|e| (e.denom, e.amount)));
             let diff_balance_root = PoseidonHash::crh(
                 &hasher,
                 &assets
                     .iter()
                     .map(|a| {
                         funds_map
-                            .get(&a.to_lowercase())
+                            .get(a)
                             .map(|f| Fr::from(f.u128()))
                             .unwrap_or_default()
                     })
@@ -188,8 +185,8 @@ pub fn execute(
                 .token_out_denom;
             let out_amount = Uint128::from_str(&swap_argument.token_out_min_amount)?;
             let funds_map = BTreeMap::from_iter([
-                (in_denom.to_lowercase(), Fr::from(in_amount.u128()).neg()),
-                (out_denom.to_lowercase(), Fr::from(out_amount.u128())),
+                (in_denom, Fr::from(in_amount.u128()).neg()),
+                (out_denom, Fr::from(out_amount.u128())),
             ]);
 
             (in_denom != out_denom)
@@ -200,12 +197,7 @@ pub fn execute(
                 &hasher,
                 &assets
                     .iter()
-                    .map(|a| {
-                        funds_map
-                            .get(&a.to_lowercase())
-                            .copied()
-                            .unwrap_or_default()
-                    })
+                    .map(|a| funds_map.get(a).copied().unwrap_or_default())
                     .collect::<Vec<_>>(),
             )?;
 
@@ -305,15 +297,13 @@ pub fn execute(
                 .then_some(())
                 .ok_or(ContractError::InvalidRoot)?;
 
-            let normalized_withdrawn_assets =
-                BTreeMap::from_iter(withdrawn_assets.iter().map(|(k, v)| (k.to_lowercase(), *v)));
             let diff_balance_root = PoseidonHash::crh(
                 &hasher,
                 &assets
                     .iter()
                     .map(|a| {
-                        normalized_withdrawn_assets
-                            .get(&a.to_lowercase())
+                        withdrawn_assets
+                            .get(a)
                             .map(|f| Fr::from(f.u128()).neg())
                             .unwrap_or_default()
                     })
@@ -347,14 +337,12 @@ pub fn execute(
                     amount: assets
                         .into_iter()
                         .filter_map(|a| {
-                            normalized_withdrawn_assets
-                                .get(&a.to_lowercase())
-                                .and_then(|v| {
-                                    Some(Coin {
-                                        denom: a,
-                                        amount: *v,
-                                    })
+                            withdrawn_assets.get(&a).and_then(|v| {
+                                Some(Coin {
+                                    denom: a,
+                                    amount: *v,
                                 })
+                            })
                         })
                         .collect(),
                 })

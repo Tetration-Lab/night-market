@@ -55,6 +55,8 @@ pub struct MainCircuit<
 
     pub old_note_nullifier_hash: F, // Public
     pub old_note_identifier: F,     // Public
+    // TODO: Include old note blinding and enforce correct transition
+    //pub old_note_blinding: F,
     pub old_note_path: Path<F, H, TREE_DEPTH>,
     pub old_note_balances: [F; N_ASSETS],
 
@@ -97,6 +99,7 @@ impl<
                 diff_balances: [F::zero(); N_ASSETS],
                 old_note_nullifier_hash: F::zero(),
                 old_note_identifier: F::zero(),
+                //old_note_blinding: F::zero(),
                 old_note_path: empty_tree.generate_membership_proof(0),
                 old_note_balances: [F::zero(); N_ASSETS],
                 new_note: F::zero(),
@@ -119,6 +122,7 @@ impl<
             diff_balances: [F::zero(); N_ASSETS],
             old_note_nullifier_hash: F::zero(),
             old_note_identifier: F::zero(),
+            //pub old_note_blinding: F,
             old_note_path: Path {
                 path: [(F::zero(), F::zero()); TREE_DEPTH],
                 marker: std::marker::PhantomData,
@@ -177,6 +181,9 @@ impl<
         let old_note_identifier = FpVar::new_input(ns!(cs, "old_note_identifier"), || {
             Ok(self.old_note_identifier)
         })?;
+        //let old_note_blinding = FpVar::new_witness(ns!(cs, "old_note_identifier"), || {
+        //Ok(self.old_note_identifier)
+        //})?;
         let old_note_path =
             PathVar::<F, H, HG, TREE_DEPTH>::new_witness(ns!(cs, "old_note_path"), || {
                 Ok(self.old_note_path)
@@ -199,6 +206,15 @@ impl<
         // Calculate old note balance root
         let old_note_balance_root =
             calculate_balance_root::<F, H, HG>(&parameters, &old_note_balances)?;
+
+        //// Calculate validity of the identifier
+        //// The note owner must be the same for old and new note
+        //let is_identifier_valid =
+        //old_note_identifier.is_eq(&<HG as TwoToOneCRHSchemeGadget<H, F>>::evaluate(
+        //&parameters,
+        //&address,
+        //&old_note_blinding,
+        //)?)?;
 
         // Calculate old note
         let old_note = <HG as CRHSchemeGadget<H, F>>::evaluate(
@@ -223,7 +239,9 @@ impl<
         old_note_balance_root
             .is_eq(&zero_balance_root)?
             .and(&old_note_nullifier_hash.is_eq(&FpVar::zero())?)?
-            .or(&is_nullifier_valid.and(&is_old_note_path_valid)?)?
+            .or(&is_nullifier_valid
+                //.and(&is_identifier_valid)?
+                .and(&is_old_note_path_valid)?)?
             .enforce_equal(&Boolean::TRUE)?;
 
         // Assert validity of new note balance root

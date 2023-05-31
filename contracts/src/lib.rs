@@ -341,11 +341,28 @@ pub fn execute(
 
             is_valid.then_some(()).ok_or(ContractError::InvalidProof)?;
 
-            Ok(Response::new().add_attributes([
-                ("index", &index.to_string()),
-                ("new_root", &new_root),
-                ("leaf", &new_note),
-            ]))
+            Ok(Response::new()
+                .add_message(BankMsg::Send {
+                    to_address: info.sender.to_string(),
+                    amount: assets
+                        .into_iter()
+                        .filter_map(|a| {
+                            normalized_withdrawn_assets
+                                .get(&a.to_lowercase())
+                                .and_then(|v| {
+                                    Some(Coin {
+                                        denom: a,
+                                        amount: *v,
+                                    })
+                                })
+                        })
+                        .collect(),
+                })
+                .add_attributes([
+                    ("index", &index.to_string()),
+                    ("new_root", &new_root),
+                    ("leaf", &new_note),
+                ]))
         }
         ExecuteMsg::TransferExcess {} => {
             (info.sender == env.contract.address)
